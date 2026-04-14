@@ -1,0 +1,7 @@
+Last position tracked: false
+Last move time set: true
+Stuck check timer exists: true
+Status running: false
+Status mode: active
+Status interval: 500
+Status planLength: 0

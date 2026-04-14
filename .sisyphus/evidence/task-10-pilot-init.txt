@@ -1,0 +1,4 @@
+start: function
+stop: function
+adjustInterval: function
+getStatus: function

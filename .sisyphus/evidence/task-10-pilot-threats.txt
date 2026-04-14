@@ -1,0 +1,4 @@
+Threats with nearby zombie: 1 hostile_mob
+Threats with nearby lava: 1 lava
+Threats with low health: 1 low_health
+Threats when safe: 0

@@ -1,0 +1,6 @@
+2026-04-14 18:58:12 [[34mdebug[39m]: [34mPilot: Mode change[39m {"service":"minecraft-ai-bot","from":"active","to":"danger","interval":200}
+Danger mode interval: 200
+2026-04-14 18:58:12 [[34mdebug[39m]: [34mPilot: Mode change[39m {"service":"minecraft-ai-bot","from":"danger","to":"idle","interval":2000}
+Idle mode interval: 2000
+2026-04-14 18:58:12 [[34mdebug[39m]: [34mPilot: Mode change[39m {"service":"minecraft-ai-bot","from":"idle","to":"active","interval":500}
+Active mode interval: 500
