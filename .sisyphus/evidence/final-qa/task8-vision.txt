@@ -1,0 +1,4 @@
+State fields: timestamp, self, blocks, entities, chat, events
+Position: undefined
+Health: undefined Food: undefined
+VALID: FAIL

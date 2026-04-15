@@ -1,0 +1,61 @@
+{
+  "name": "minecraft-ai-bot",
+  "version": "1.0.0",
+  "description": "🤖 Autonomous Minecraft bot powered by 3-layer AI architecture",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest tests/unit",
+    "test:integration": "jest tests/integration",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "test:e2e:verbose": "jest --config jest.e2e.config.js --verbose",
+    "test:coverage": "jest --coverage tests/unit tests/integration",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "mc:start": "docker run -d -p 25565:25565 -e EULA=TRUE -e ONLINE_MODE=false --name mc-test-server itzg/minecraft-server",
+    "mc:stop": "docker stop mc-test-server && docker rm mc-test-server",
+    "mc:restart": "npm run mc:stop; npm run mc:start"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "tests/e2e/"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/w-koperski/minecraft-ai-bot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/w-koperski/minecraft-ai-bot/issues"
+  },
+  "homepage": "https://github.com/w-koperski/minecraft-ai-bot#readme",
+  "dependencies": {
+    "axios": "1.7.2",
+    "bottleneck": "2.19.5",
+    "dotenv": "16.4.5",
+    "lockfile": "1.0.4",
+    "minecraft-data": "3.67.0",
+    "mineflayer": "4.20.1",
+    "mineflayer-collectblock": "1.4.0",
+    "mineflayer-pathfinder": "2.4.4",
+    "sqlite3": "5.1.7",
+    "vec3": "0.1.8",
+    "winston": "3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.0",
+    "jest": "29.7.0",
+    "jest-junit": "^16.0.0"
+  }
+}

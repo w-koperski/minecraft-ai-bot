@@ -1,0 +1,3 @@
+Methods: setCollectBlock, hasItem, checkIngredients, findCraftingTable, findNearestCraftingTable, gatherResource, findBlockDroppingItem, craft, craftWithGathering, getAvailableRecipes, getRecipe, getCraftableRecipes, _wait
+Recipes available: 6
+VALID: PASS

@@ -1,0 +1,3 @@
+=== Edge Case: Empty State ===
+1. Read non-existent state: null (expected)
+EDGE CASE: PASS

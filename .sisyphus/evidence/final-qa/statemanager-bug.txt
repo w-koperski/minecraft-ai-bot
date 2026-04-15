@@ -1,0 +1,63 @@
+# StateManager Critical Bug Found
+
+**Date:** 2026-04-14
+**Test:** Manual QA - StateManager write/read cycle
+**Status:** BUG FOUND
+
+## Issue Description
+
+StateManager.withLock() passes the data file path to lockfile.lock(), but lockfile.lock() 
+treats this path as the lock file itself. When a data file already exists, lockfile.lock() 
+fails with EEXIST error.
+
+## Root Cause
+
+In state-manager.js:72-89, the withLock method:
+
+```javascript
+async withLock(filePath, operation) {
+  return new Promise((resolve, reject) => {
+    lockfile.lock(filePath, { ... }, ...)  // BUG: filePath is data file, not lock file
+  });
+}
+```
+
+## Expected Behavior
+
+lockfile.lock() expects the LOCK FILE path, not the data file path.
+
+## Actual Behavior
+
+When data file exists, lockfile.lock() fails with:
+```
+ERROR: EEXIST: file already exists, open 'state/test.json'
+```
+
+## Workaround
+
+Tests pass because they mock lockfile module. In production, this breaks when:
+1. Reading existing state files
+2. Writing to files that already exist
+3. Concurrent access
+
+## Evidence
+
+```bash
+$ node -e "await sm.write('plan', [{ action: 'test' }]); await sm.read('plan')"
+ERROR: EEXIST: file already exists, open 'state/plan.json'
+```
+
+## Recommended Fix
+
+Change lockfile.lock() call to use a lock file path:
+```javascript
+const lockPath = filePath + '.lock';
+lockfile.lock(lockPath, { ... }, ...)
+```
+
+## Impact
+
+- Unit tests: PASS (mocked)
+- Integration: UNKNOWN
+- Production: FAIL (blocks all state operations after first write)
+

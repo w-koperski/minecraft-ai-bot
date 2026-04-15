@@ -1,0 +1,9 @@
+2026-04-14 20:25:40 [[32minfo[39m]: [32m[Safety] Manager initialized[39m {"service":"minecraft-ai-bot","enabled":true,"allowPlayerAttacks":false,"allowBreakingPlayerBlocks":false}
+2026-04-14 20:25:40 [[33mwarn[39m]: [33m[Safety] Dig action missing position[39m {"service":"minecraft-ai-bot"}
+Dig allowed: false
+2026-04-14 20:25:40 [[33mwarn[39m]: [33m[Safety] VIOLATION BLOCKED[39m {"service":"minecraft-ai-bot","action":"place","reason":"Dangerous block","details":{"block":"lava","position":"(0.0, 0.0, 0.0)"}}
+Lava allowed: false
+Dirt allowed: true
+2026-04-14 20:25:40 [[33mwarn[39m]: [33m[Safety] VIOLATION BLOCKED[39m {"service":"minecraft-ai-bot","action":"attack","reason":"Player attack","details":{"username":"test","position":"unknown"}}
+Attack player: false
+VALID: FAIL

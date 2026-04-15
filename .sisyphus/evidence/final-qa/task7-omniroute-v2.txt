@@ -1,0 +1,5 @@
+Methods: getModelId, _calculateBackoffDelay, _sleep, _executeWithRetry, chat, _normalizeMessages, healthCheck, getHealthStatus, getMetrics, resetMetrics, pilot, strategy, commander, stop
+Has chat: true
+Has healthCheck: true
+Has pilot/strategy/commander: true true true
+VALID: PASS

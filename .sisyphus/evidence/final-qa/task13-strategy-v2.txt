@@ -1,0 +1,3 @@
+Methods: start, stop, scheduleNextLoop, loop, createPlan, buildPlanningContext, getSystemPrompt, extractPlan, handleActionError, detectStuck, updateProgress, hashState, isPlanComplete, requestCommanderHelp, getRecentHistory, getRecentActions, trimActionHistory, recordAction, getMetrics
+Has createPlan: true
+VALID: PASS

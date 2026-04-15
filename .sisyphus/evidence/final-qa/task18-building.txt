@@ -1,0 +1,3 @@
+Methods: isValidBuildPosition, navigateToBuildPosition, placeBlock, buildWall, buildFloor, buildPillar, buildHouse, getStructureRequirements, checkBlockInventory
+Has placeBlock: true
+VALID: PASS

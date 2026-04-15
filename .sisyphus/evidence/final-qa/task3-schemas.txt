@@ -1,0 +1,3 @@
+Schema validators: validateState, validateCommands, validatePlan, validateActionError, validateProgress
+Validate state: valid
+VALID: PASS

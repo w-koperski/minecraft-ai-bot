@@ -1,0 +1,4 @@
+Methods: _initTables, addEvent, addGoal, completeGoal, addLearning, queryEvents, queryGoals, queryLearnings, cleanupOldEvents, close
+Has remember/recall: false false
+VALID: FAIL
+2026-04-14 20:21:34 [[34mdebug[39m]: [34mMemoryStore connected[39m {"service":"minecraft-ai-bot","dbPath":":memory:"}

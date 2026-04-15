@@ -1,0 +1,4 @@
+Methods: executeWithVerification, _performAction, _extractOutcome, _verifyOutcome, _calculateSeverity, _inventoryDiff, _distance, _wait, getSuccessRate, getRecentFailures
+Has execute: false
+Has verify: false
+VALID: FAIL

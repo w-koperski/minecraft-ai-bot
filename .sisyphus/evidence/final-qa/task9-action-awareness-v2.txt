@@ -1,0 +1,3 @@
+Methods: __defineGetter__, __defineSetter__, hasOwnProperty, __lookupGetter__, __lookupSetter__, isPrototypeOf, propertyIsEnumerable, toString, valueOf, __proto__, toLocaleString
+Has executeWithVerification: true
+VALID: PASS

@@ -1,0 +1,5 @@
+OmnirouteClient methods: getModelId, _calculateBackoffDelay, _sleep, _executeWithRetry, chat, _normalizeMessages, healthCheck, getHealthStatus, getMetrics, resetMetrics, pilot, strategy, commander, stop
+Has chat: true
+Has checkHealth: false
+baseURL: MISSING
+VALID: FAIL

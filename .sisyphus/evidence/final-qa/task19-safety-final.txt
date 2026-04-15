@@ -1,0 +1,10 @@
+2026-04-14 20:24:50 [[32minfo[39m]: [32m[Safety] Manager initialized[39m {"service":"minecraft-ai-bot","enabled":true,"allowPlayerAttacks":false,"allowBreakingPlayerBlocks":false}
+2026-04-14 20:24:50 [[33mwarn[39m]: [33m[Safety] Dig action missing position[39m {"service":"minecraft-ai-bot"}
+Dig dirt: undefined
+2026-04-14 20:24:50 [[33mwarn[39m]: [33m[Safety] Place action missing position or blockName[39m {"service":"minecraft-ai-bot"}
+2026-04-14 20:24:50 [[33mwarn[39m]: [33m[Safety] Place action missing position or blockName[39m {"service":"minecraft-ai-bot"}
+Lava allowed: undefined
+TNT allowed: undefined
+2026-04-14 20:24:50 [[33mwarn[39m]: [33m[Safety] Attack action missing entity[39m {"service":"minecraft-ai-bot"}
+Attack player: undefined
+VALID: FAIL
