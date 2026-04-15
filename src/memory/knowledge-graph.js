@@ -411,6 +411,404 @@ class KnowledgeGraph {
     logger.debug('KnowledgeGraph cleared');
   }
 
+  // ============================================
+  // Memory Type Methods (Task 10)
+  // ============================================
+
+  /**
+   * Add a spatial memory (location, biome, structure)
+   * @param {string} name - Location name or identifier
+   * @param {object} coordinates - { x, y, z }
+   * @param {string} biome - Biome type
+   * @param {number} timestamp - When this memory was formed
+   * @returns {boolean} - Success status
+   */
+  addSpatialMemory(name, coordinates, biome, timestamp = Date.now()) {
+    if (!name || !coordinates) {
+      logger.warn('addSpatialMemory requires name and coordinates', { name, coordinates });
+      return false;
+    }
+
+    const id = `spatial_${name}_${timestamp}`;
+    const properties = {
+      category: 'location',
+      name,
+      coordinates: { ...coordinates },
+      biome: biome || 'unknown',
+      last_visited: timestamp
+    };
+
+    const result = this.addEntity(id, 'spatial_memory', properties);
+    
+    // Create index entries for fast lookup
+    if (result && biome) {
+      this._addSpatialIndex(id, biome, coordinates);
+    }
+
+    return result;
+  }
+
+  /**
+   * Add a temporal memory (event sequence, pattern)
+   * @param {string} event - Event name or type
+   * @param {number} timestamp - When this event occurred
+   * @param {number} sequence - Sequence number in a series
+   * @returns {boolean} - Success status
+   */
+  addTemporalMemory(event, timestamp = Date.now(), sequence = 0) {
+    if (!event) {
+      logger.warn('addTemporalMemory requires event');
+      return false;
+    }
+
+    const id = `temporal_${event}_${timestamp}`;
+    const properties = {
+      category: 'event_sequence',
+      event,
+      timestamp,
+      sequence,
+      pattern: null // Can be set later if pattern detected
+    };
+
+    return this.addEntity(id, 'temporal_memory', properties);
+  }
+
+  /**
+   * Add an episodic memory (experience with full context)
+   * @param {string} experience - Description of what happened
+   * @param {Array} participants - Who was involved [{ type, identifier, role }]
+   * @param {object} location - Where it happened { x, y, z, dimension, biome }
+   * @param {number} timestamp - When it happened
+   * @param {number} importance - Importance score (1-10, default 5)
+   * @returns {boolean} - Success status
+   */
+  addEpisodicMemory(experience, participants = [], location = null, timestamp = Date.now(), importance = 5) {
+    if (!experience) {
+      logger.warn('addEpisodicMemory requires experience');
+      return false;
+    }
+
+    const id = `episodic_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+    const properties = {
+      category: 'experience',
+      experience,
+      participants: participants || [],
+      location: location || { x: 0, y: 0, z: 0, dimension: 'overworld', biome: 'unknown' },
+      timestamp,
+      importance: Math.max(1, Math.min(10, importance)),
+      memory_tier: 'stm' // Short-term memory initially
+    };
+
+    const result = this.addEntity(id, 'episodic_memory', properties, { valid_from: new Date(timestamp).toISOString() });
+
+    // Link to participant entities if they exist
+    if (result && participants) {
+      participants.forEach(p => {
+        const participantId = p.identifier;
+        if (this.graph.hasNode(participantId)) {
+          this.addRelation(id, participantId, 'INVOLVES', { role: p.role });
+        }
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Add a semantic memory (fact, rule, relationship)
+   * @param {string} fact - The fact or rule
+   * @param {string} category - Category (fact, rule, relationship, preference, recipe)
+   * @param {number} confidence - Confidence level (0-1)
+   * @param {number} timestamp - When this was learned
+   * @returns {boolean} - Success status
+   */
+  addSemanticMemory(fact, category = 'fact', confidence = 1.0, timestamp = Date.now()) {
+    if (!fact) {
+      logger.warn('addSemanticMemory requires fact');
+      return false;
+    }
+
+    const id = `semantic_${category}_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+    const properties = {
+      category,
+      subject: this._extractSubject(fact),
+      predicate: this._extractPredicate(fact),
+      object: this._extractObject(fact),
+      confidence: Math.max(0, Math.min(1, confidence)),
+      source: 'direct_learning',
+      expiry: null
+    };
+
+    return this.addEntity(id, 'semantic_memory', properties);
+  }
+
+  // ============================================
+  // Memory Query Methods
+  // ============================================
+
+  /**
+   * Get spatial memories filtered by criteria
+   * @param {object} filter - Filter criteria { biome, name, near: { x, y, z, radius } }
+   * @returns {Array} - Matching spatial memories
+   */
+  getSpatialMemories(filter = {}) {
+    const { biome, name, near } = filter;
+    const memories = this.filterByType('spatial_memory');
+    
+    return memories.filter(m => {
+      const props = m.properties;
+      
+      // Filter by biome
+      if (biome && props.biome !== biome) return false;
+      
+      // Filter by name (partial match)
+      if (name && !props.name.toLowerCase().includes(name.toLowerCase())) return false;
+      
+      // Filter by proximity
+      if (near && props.coordinates) {
+        const coords = props.coordinates;
+        const dx = coords.x - near.x;
+        const dy = coords.y - near.y;
+        const dz = coords.z - near.z;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance > near.radius) return false;
+      }
+      
+      return true;
+    }).map(m => ({
+      id: m.id,
+      ...m.properties
+    }));
+  }
+
+  /**
+   * Get temporal memories filtered by criteria
+   * @param {object} filter - Filter criteria { event, fromTime, toTime, pattern }
+   * @returns {Array} - Matching temporal memories
+   */
+  getTemporalMemories(filter = {}) {
+    const { event, fromTime, toTime, pattern } = filter;
+    const memories = this.filterByType('temporal_memory');
+    
+    return memories.filter(m => {
+      const props = m.properties;
+      
+      // Filter by event type (partial match)
+      if (event && !props.event.toLowerCase().includes(event.toLowerCase())) return false;
+      
+      // Filter by time range
+      if (fromTime && props.timestamp < fromTime) return false;
+      if (toTime && props.timestamp > toTime) return false;
+      
+      // Filter by pattern
+      if (pattern && props.pattern !== pattern) return false;
+      
+      return true;
+    }).map(m => ({
+      id: m.id,
+      ...m.properties
+    })).sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  /**
+   * Get episodic memories filtered by criteria
+   * @param {object} filter - Filter criteria { participant, location, category, minImportance }
+   * @returns {Array} - Matching episodic memories
+   */
+  getEpisodicMemories(filter = {}) {
+    const { participant, location, category, minImportance, memoryTier } = filter;
+    const memories = this.filterByType('episodic_memory');
+    
+    return memories.filter(m => {
+      const props = m.properties;
+      
+      // Filter by participant
+      if (participant) {
+        const hasParticipant = props.participants.some(p => 
+          p.identifier === participant || p.type === participant
+        );
+        if (!hasParticipant) return false;
+      }
+      
+      // Filter by location (nearby)
+      if (location && props.location) {
+        const coords = props.location;
+        const dx = coords.x - location.x;
+        const dy = coords.y - location.y;
+        const dz = coords.z - location.z;
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance > location.radius) return false;
+      }
+      
+      // Filter by category
+      if (category && props.category !== category) return false;
+      
+      // Filter by importance
+      if (minImportance && props.importance < minImportance) return false;
+      
+      // Filter by memory tier
+      if (memoryTier && props.memory_tier !== memoryTier) return false;
+      
+      return true;
+    }).map(m => ({
+      id: m.id,
+      ...m.properties
+    })).sort((a, b) => b.importance - a.importance);
+  }
+
+  /**
+   * Get semantic memories filtered by criteria
+   * @param {object} filter - Filter criteria { category, subject, minConfidence }
+   * @returns {Array} - Matching semantic memories
+   */
+  getSemanticMemories(filter = {}) {
+    const { category, subject, minConfidence, predicate } = filter;
+    const memories = this.filterByType('semantic_memory');
+    
+    return memories.filter(m => {
+      const props = m.properties;
+      
+      // Filter by category
+      if (category && props.category !== category) return false;
+      
+      // Filter by subject (partial match)
+      if (subject && !props.subject.toLowerCase().includes(subject.toLowerCase())) return false;
+      
+      // Filter by predicate
+      if (predicate && !props.predicate.toLowerCase().includes(predicate.toLowerCase())) return false;
+      
+      // Filter by confidence
+      if (minConfidence && props.confidence < minConfidence) return false;
+      
+      return true;
+    }).map(m => ({
+      id: m.id,
+      ...m.properties
+    })).sort((a, b) => b.confidence - a.confidence);
+  }
+
+  // ============================================
+  // Memory Consolidation
+  // ============================================
+
+  /**
+   * Consolidate memories: STM → Episodic → LTM
+   * Moves memories based on age and importance
+   * @param {object} options - Consolidation options { stmToEpisodicMs, episodicToLtmMs }
+   * @returns {object} - Consolidation stats { stmToEpisodic, episodicToLtm, dropped }
+   */
+  consolidate(options = {}) {
+    const now = Date.now();
+    const stmToEpisodicMs = options.stmToEpisodicMs || 60 * 60 * 1000; // 1 hour
+    const episodicToLtmMs = options.episodicToLtmMs || 24 * 60 * 60 * 1000; // 24 hours
+    
+    const stats = {
+      stmToEpisodic: 0,
+      episodicToLtm: 0,
+      dropped: 0
+    };
+
+    // Get all episodic memories
+    const episodicMemories = this.filterByType('episodic_memory');
+    
+    for (const memory of episodicMemories) {
+      const props = memory.properties;
+      const age = now - props.timestamp;
+      const id = memory.id;
+      
+      // STM → Episodic (after 1 hour, if importance >= 3)
+      if (props.memory_tier === 'stm') {
+        if (age > stmToEpisodicMs && props.importance >= 3) {
+          this.updateEntity(id, { memory_tier: 'episodic' });
+          stats.stmToEpisodic++;
+        } else if (age > stmToEpisodicMs && props.importance < 3) {
+          // Drop trivial STM memories
+          this.deleteEntity(id);
+          stats.dropped++;
+        }
+      }
+      // Episodic → LTM (after 24 hours, if importance >= 6)
+      else if (props.memory_tier === 'episodic') {
+        if (age > episodicToLtmMs && props.importance >= 6) {
+          this.updateEntity(id, { memory_tier: 'ltm' });
+          stats.episodicToLtm++;
+        } else if (age > episodicToLtmMs && props.importance < 6) {
+          // Drop less important episodic memories
+          this.deleteEntity(id);
+          stats.dropped++;
+        }
+      }
+    }
+
+    if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+      logger.info('Memory consolidation complete', stats);
+    }
+
+    return stats;
+  }
+
+  /**
+   * Get memory tier statistics
+   * @returns {object} - { stm: count, episodic: count, ltm: count }
+   */
+  getMemoryTierStats() {
+    const episodicMemories = this.filterByType('episodic_memory');
+    const stats = { stm: 0, episodic: 0, ltm: 0 };
+    
+    for (const memory of episodicMemories) {
+      const tier = memory.properties.memory_tier || 'stm';
+      stats[tier]++;
+    }
+    
+    return stats;
+  }
+
+  // ============================================
+  // Helper Methods for Memory Types
+  // ============================================
+
+  /**
+   * Add spatial index for fast biome/location lookup
+   * @private
+   */
+  _addSpatialIndex(spatialId, biome, coordinates) {
+    // Create a biome index node if it doesn't exist
+    const biomeIndexId = `spatial_index_biome_${biome}`;
+    if (!this.graph.hasNode(biomeIndexId)) {
+      this.addEntity(biomeIndexId, 'spatial_index', { biome });
+    }
+    
+    // Link spatial memory to biome index
+    this.addRelation(spatialId, biomeIndexId, 'IN_BIOME');
+  }
+
+  /**
+   * Extract subject from fact string (simple implementation)
+   * @private
+   */
+  _extractSubject(fact) {
+    const parts = fact.split(/[is|are|has|have|can|does|will|should]/);
+    return parts[0]?.trim() || fact;
+  }
+
+  /**
+   * Extract predicate from fact string
+   * @private
+   */
+  _extractPredicate(fact) {
+    const match = fact.match(/(is|are|has|have|can|does|will|should)/);
+    return match ? match[1] : 'relates';
+  }
+
+  /**
+   * Extract object from fact string
+   * @private
+   */
+  _extractObject(fact) {
+    const parts = fact.split(/[is|are|has|have|can|does|will|should]/);
+    return parts[1]?.trim() || '';
+  }
+
   // Private methods
 
   /**

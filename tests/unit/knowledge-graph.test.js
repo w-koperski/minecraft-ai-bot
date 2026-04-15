@@ -624,9 +624,9 @@ describe('KnowledgeGraph', () => {
       kg.addEntity('player1', 'player');
       kg.addEntity('player2', 'player');
       kg.addRelation('player1', 'player2', 'FRIEND');
-      
+
       kg.clear();
-      
+
       expect(kg.graph.order).toBe(0);
       expect(kg.graph.size).toBe(0);
     });
@@ -634,12 +634,324 @@ describe('KnowledgeGraph', () => {
     test('should reset stats', () => {
       kg.addEntity('player1', 'player');
       kg.getEntity('player1');
-      
+
       kg.clear();
-      
+
       const stats = kg.getStats();
       expect(stats.entitiesAdded).toBe(0);
       expect(stats.queriesRun).toBe(0);
+    });
+  });
+
+  // ============================================
+  // Memory Type Tests (Task 10)
+  // ============================================
+
+  describe('Spatial Memory', () => {
+    test('should add spatial memory with coordinates', () => {
+      const result = kg.addSpatialMemory('spawn', { x: 0, y: 64, z: 0 }, 'plains');
+      expect(result).toBe(true);
+      expect(kg.graph.order).toBeGreaterThan(0);
+    });
+
+    test('should store coordinates and biome', () => {
+      kg.addSpatialMemory('spawn', { x: 0, y: 64, z: 0 }, 'plains');
+      const memories = kg.getSpatialMemories({ biome: 'plains' });
+      expect(memories.length).toBe(1);
+      expect(memories[0].coordinates).toEqual({ x: 0, y: 64, z: 0 });
+      expect(memories[0].biome).toBe('plains');
+    });
+
+    test('should query by biome', () => {
+      kg.addSpatialMemory('spawn', { x: 0, y: 64, z: 0 }, 'plains');
+      kg.addSpatialMemory('cave_entrance', { x: 100, y: 50, z: -50 }, 'desert');
+
+      const plainsMemories = kg.getSpatialMemories({ biome: 'plains' });
+      expect(plainsMemories.length).toBe(1);
+      expect(plainsMemories[0].name).toBe('spawn');
+    });
+
+    test('should query by name (partial match)', () => {
+      kg.addSpatialMemory('spawn_point', { x: 0, y: 64, z: 0 }, 'plains');
+      kg.addSpatialMemory('base_camp', { x: 100, y: 64, z: 100 }, 'forest');
+
+      const memories = kg.getSpatialMemories({ name: 'spawn' });
+      expect(memories.length).toBe(1);
+      expect(memories[0].name).toBe('spawn_point');
+    });
+
+    test('should query by proximity', () => {
+      kg.addSpatialMemory('nearby', { x: 10, y: 64, z: 10 }, 'plains');
+      kg.addSpatialMemory('far_away', { x: 1000, y: 64, z: 1000 }, 'plains');
+
+      const nearby = kg.getSpatialMemories({ near: { x: 0, y: 64, z: 0, radius: 50 } });
+      expect(nearby.length).toBe(1);
+      expect(nearby[0].name).toBe('nearby');
+    });
+
+    test('should reject without name', () => {
+      const result = kg.addSpatialMemory(null, { x: 0, y: 64, z: 0 }, 'plains');
+      expect(result).toBe(false);
+    });
+
+    test('should reject without coordinates', () => {
+      const result = kg.addSpatialMemory('test', null, 'plains');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('Temporal Memory', () => {
+    test('should add temporal memory', () => {
+      const result = kg.addTemporalMemory('combat_start', 1000, 1);
+      expect(result).toBe(true);
+      expect(kg.graph.order).toBeGreaterThan(0);
+    });
+
+    test('should store event and sequence', () => {
+      kg.addTemporalMemory('attack', 1000, 1);
+      kg.addTemporalMemory('retreat', 1500, 2);
+      kg.addTemporalMemory('attack', 2000, 3);
+
+      const memories = kg.getTemporalMemories({ event: 'attack' });
+      expect(memories.length).toBe(2);
+    });
+
+    test('should filter by time range', () => {
+      kg.addTemporalMemory('event1', 1000, 1);
+      kg.addTemporalMemory('event2', 2000, 2);
+      kg.addTemporalMemory('event3', 3000, 3);
+
+      const memories = kg.getTemporalMemories({ fromTime: 1500, toTime: 2500 });
+      expect(memories.length).toBe(1);
+      expect(memories[0].timestamp).toBe(2000);
+    });
+
+    test('should sort by timestamp', () => {
+      kg.addTemporalMemory('late', 3000, 2);
+      kg.addTemporalMemory('early', 1000, 1);
+
+      const memories = kg.getTemporalMemories();
+      expect(memories[0].timestamp).toBe(1000);
+      expect(memories[1].timestamp).toBe(3000);
+    });
+
+    test('should reject without event', () => {
+      const result = kg.addTemporalMemory(null, 1000, 1);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('Episodic Memory', () => {
+    test('should add episodic memory with full context', () => {
+      const result = kg.addEpisodicMemory(
+        'combat_victory',
+        [{ type: 'bot', identifier: 'AIBot', role: 'attacker' }],
+        { x: 100, y: 64, z: -50, dimension: 'overworld', biome: 'plains' },
+        1000,
+        7
+      );
+      expect(result).toBe(true);
+    });
+
+    test('should store participants and location', () => {
+      kg.addEpisodicMemory(
+        'trade',
+        [{ type: 'player', identifier: 'Steve', role: 'trader' }],
+        { x: 0, y: 64, z: 0 },
+        1000,
+        5
+      );
+
+      const memories = kg.getEpisodicMemories();
+      expect(memories.length).toBe(1);
+      expect(memories[0].participants.length).toBe(1);
+      expect(memories[0].participants[0].identifier).toBe('Steve');
+    });
+
+    test('should filter by participant', () => {
+      kg.addEpisodicMemory(
+        'event1',
+        [{ type: 'player', identifier: 'Steve', role: 'actor' }],
+        { x: 0, y: 64, z: 0 },
+        1000,
+        5
+      );
+      kg.addEpisodicMemory(
+        'event2',
+        [{ type: 'player', identifier: 'Alex', role: 'actor' }],
+        { x: 0, y: 64, z: 0 },
+        2000,
+        5
+      );
+
+      const memories = kg.getEpisodicMemories({ participant: 'Steve' });
+      expect(memories.length).toBe(1);
+      expect(memories[0].experience).toBe('event1');
+    });
+
+    test('should filter by importance', () => {
+      kg.addEpisodicMemory('low_importance', [], null, 1000, 2);
+      kg.addEpisodicMemory('high_importance', [], null, 2000, 8);
+
+      const memories = kg.getEpisodicMemories({ minImportance: 5 });
+      expect(memories.length).toBe(1);
+      expect(memories[0].experience).toBe('high_importance');
+    });
+
+    test('should initialize with stm tier', () => {
+      kg.addEpisodicMemory('test', [], null, 1000, 5);
+      const memories = kg.getEpisodicMemories();
+      expect(memories[0].memory_tier).toBe('stm');
+    });
+
+    test('should clamp importance to 1-10 range', () => {
+      kg.addEpisodicMemory('high', [], null, 1000, 15);
+      kg.addEpisodicMemory('low', [], null, 2000, -5);
+
+      const memories = kg.getEpisodicMemories();
+      expect(memories.find(m => m.experience === 'high').importance).toBe(10);
+      expect(memories.find(m => m.experience === 'low').importance).toBe(1);
+    });
+
+    test('should reject without experience', () => {
+      const result = kg.addEpisodicMemory(null, [], null, 1000, 5);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('Semantic Memory', () => {
+    test('should add semantic memory', () => {
+      const result = kg.addSemanticMemory('coal burns for 8 items', 'fact', 0.9);
+      expect(result).toBe(true);
+    });
+
+    test('should store fact and confidence', () => {
+      kg.addSemanticMemory('zombies drop flesh', 'fact', 0.95);
+      const memories = kg.getSemanticMemories();
+      expect(memories.length).toBe(1);
+      expect(memories[0].confidence).toBe(0.95);
+    });
+
+    test('should filter by category', () => {
+      kg.addSemanticMemory('coal fact', 'fact', 0.9);
+      kg.addSemanticMemory('trading rule', 'rule', 0.8);
+
+      const facts = kg.getSemanticMemories({ category: 'fact' });
+      expect(facts.length).toBe(1);
+    });
+
+    test('should filter by confidence', () => {
+      kg.addSemanticMemory('high_confidence', 'fact', 0.9);
+      kg.addSemanticMemory('low_confidence', 'fact', 0.3);
+
+      const memories = kg.getSemanticMemories({ minConfidence: 0.7 });
+      expect(memories.length).toBe(1);
+      expect(memories[0].confidence).toBe(0.9);
+    });
+
+    test('should sort by confidence', () => {
+      kg.addSemanticMemory('low', 'fact', 0.5);
+      kg.addSemanticMemory('high', 'fact', 0.9);
+
+      const memories = kg.getSemanticMemories();
+      expect(memories[0].confidence).toBe(0.9);
+      expect(memories[1].confidence).toBe(0.5);
+    });
+
+    test('should clamp confidence to 0-1 range', () => {
+      kg.addSemanticMemory('high', 'fact', 1.5);
+      kg.addSemanticMemory('low', 'fact', -0.5);
+
+      const memories = kg.getSemanticMemories();
+      expect(memories.find(m => m.subject.includes('high')).confidence).toBe(1);
+      expect(memories.find(m => m.subject.includes('low')).confidence).toBe(0);
+    });
+
+    test('should reject without fact', () => {
+      const result = kg.addSemanticMemory(null, 'fact', 0.9);
+      expect(result).toBe(false);
+    });
+  });
+
+  // ============================================
+  // Memory Consolidation Tests
+  // ============================================
+
+  describe('Memory Consolidation', () => {
+    test('should promote STM to Episodic after time threshold', () => {
+      const oldTimestamp = Date.now() - 61 * 60 * 1000;
+      kg.addEpisodicMemory('old_memory', [], null, oldTimestamp, 5);
+
+      const beforeStats = kg.getMemoryTierStats();
+      expect(beforeStats.stm).toBe(1);
+
+      const stats = kg.consolidate();
+      expect(stats.stmToEpisodic).toBe(1);
+
+      const afterStats = kg.getMemoryTierStats();
+      expect(afterStats.stm).toBe(0);
+      expect(afterStats.episodic).toBe(1);
+    });
+
+    test('should drop low-importance STM memories', () => {
+      const oldTimestamp = Date.now() - 61 * 60 * 1000;
+      kg.addEpisodicMemory('trivial', [], null, oldTimestamp, 1);
+
+      const stats = kg.consolidate();
+      expect(stats.dropped).toBe(1);
+
+      const memories = kg.getEpisodicMemories();
+      expect(memories.length).toBe(0);
+    });
+
+    test('should promote Episodic to LTM after 24 hours', () => {
+      const oldTimestamp = Date.now() - 25 * 60 * 60 * 1000;
+      kg.addEpisodicMemory('important', [], null, oldTimestamp, 8);
+
+      kg.updateEntity(kg.filterByType('episodic_memory')[0].id, { memory_tier: 'episodic' });
+
+      const stats = kg.consolidate();
+      expect(stats.episodicToLtm).toBe(1);
+
+      const tierStats = kg.getMemoryTierStats();
+      expect(tierStats.ltm).toBe(1);
+    });
+
+    test('should drop medium-importance Episodic memories', () => {
+      const oldTimestamp = Date.now() - 25 * 60 * 60 * 1000;
+      kg.addEpisodicMemory('medium', [], null, oldTimestamp, 4);
+
+      kg.updateEntity(kg.filterByType('episodic_memory')[0].id, { memory_tier: 'episodic' });
+
+      const stats = kg.consolidate();
+      expect(stats.dropped).toBe(1);
+    });
+
+    test('should keep recent STM memories', () => {
+      kg.addEpisodicMemory('recent', [], null, Date.now(), 5);
+
+      const stats = kg.consolidate();
+      expect(stats.stmToEpisodic).toBe(0);
+
+      const tierStats = kg.getMemoryTierStats();
+      expect(tierStats.stm).toBe(1);
+    });
+
+    test('should use custom thresholds', () => {
+      kg.addEpisodicMemory('test', [], null, Date.now() - 1000, 5);
+
+      const stats = kg.consolidate({ stmToEpisodicMs: 500 });
+      expect(stats.stmToEpisodic).toBe(1);
+    });
+
+    test('should return tier statistics', () => {
+      kg.addEpisodicMemory('stm1', [], null, Date.now(), 5);
+      kg.addEpisodicMemory('stm2', [], null, Date.now(), 5);
+
+      const tierStats = kg.getMemoryTierStats();
+      expect(tierStats.stm).toBe(2);
+      expect(tierStats.episodic).toBe(0);
+      expect(tierStats.ltm).toBe(0);
     });
   });
 });
