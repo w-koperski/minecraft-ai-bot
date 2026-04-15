@@ -1,0 +1,21 @@
+QA Scenario 1: Direct Mention Detection
+==========================================
+
+PASS: "Hey bot, come here" => true (0.85)
+PASS: "bot, come here" => true (1.00)
+PASS: "@bot come here" => true (1.00)
+PASS: "Bot help me" => true (1.00)
+PASS: "BOT: what are you doing?" => true (1.00)
+PASS: "hey Bot" => true (0.85)
+PASS: "hi Bot" => true (0.85)
+PASS: "hello Bot" => true (0.85)
+PASS: "!bot collect wood" => true (1.00)
+PASS: "!Bot help" => true (1.00)
+PASS: "thanks bot" => true (0.85)
+PASS: "good job Bot" => true (0.85)
+PASS: "hey everyone" => false (0.00)
+PASS: "can someone help" => false (0.00)
+PASS: "Steve help me" => false (0.00)
+
+Results: 15/15 passed
+Accuracy: 100.0%

@@ -19,6 +19,8 @@
 const logger = require('../utils/logger');
 const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
+const { getTraits } = require('../../personality/personality-engine');
+const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
 
 // Loop interval (milliseconds)
 const STRATEGY_INTERVAL = parseInt(process.env.STRATEGY_INTERVAL) || 3000;
@@ -213,8 +215,8 @@ class Strategy {
     logger.info('Strategy: Creating new plan', { goal });
 
     try {
-      // Build context with Short-Term Memory
-      const context = this.buildPlanningContext(state, goal);
+      // Build context with Short-Term Memory (async for personality/relationship)
+      const context = await this.buildPlanningContext(state, goal);
       
       // Call LLM
       const messages = [
@@ -294,18 +296,21 @@ class Strategy {
   /**
    * Build planning context with state and memory
    */
-  buildPlanningContext(state, goal) {
+  async buildPlanningContext(state, goal) {
     const recentHistory = this.getRecentHistory();
     const recentActions = this.getRecentActions();
 
-    let context = `Goal: ${goal}\n\n`;
-    
+    const personalityBlock = await this._buildPersonalityBlock();
+    const relationshipBlock = await this._buildRelationshipBlock();
+
+    let context = `${personalityBlock}\n\n${relationshipBlock}\n\nGoal: ${goal}\n\n`;
+
     context += `Current State:\n`;
     context += `- Position: (${state.position.x.toFixed(1)}, ${state.position.y.toFixed(1)}, ${state.position.z.toFixed(1)})\n`;
     context += `- Health: ${state.health}/20\n`;
     context += `- Food: ${state.food}/20\n`;
     context += `- Inventory: ${state.inventory.length} items\n`;
-    
+
     if (state.inventory.length > 0) {
       const topItems = state.inventory.slice(0, 5);
       context += `  Top items: ${topItems.map(i => `${i.name} x${i.count}`).join(', ')}\n`;
@@ -387,6 +392,43 @@ Available actions:
 - wait: Wait for condition or duration
 
 Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
+  }
+
+  /**
+   * Build personality block for prompts
+   */
+  async _buildPersonalityBlock() {
+    try {
+      const traits = getTraits();
+      const traitList = Object.entries(traits)
+        .map(([name, value]) => `${name} (${value.toFixed(2)})`)
+        .join(', ');
+
+      const curiosityNote = traits.curiosity >= 0.7
+        ? 'You are highly curious and enjoy exploring new areas.'
+        : 'You prefer familiar paths and known strategies.';
+      const loyaltyNote = traits.loyalty >= 0.8
+        ? 'You are deeply loyal and prioritize helping the player above all else.'
+        : 'You balance your own goals with the player\'s needs.';
+
+      return `Personality: You are ${traitList}. ${curiosityNote} ${loyaltyNote}`;
+    } catch (err) {
+      logger.warn('Strategy: Could not load personality traits', { error: err.message });
+      return 'Personality: Default planning mode.';
+    }
+  }
+
+  /**
+   * Build relationship block for prompts
+   */
+  async _buildRelationshipBlock() {
+    try {
+      const relationship = await getRelationship();
+      return formatForPrompt(relationship);
+    } catch (err) {
+      logger.warn('Strategy: Could not load relationship state', { error: err.message });
+      return 'Relationship: Unknown player relationship.';
+    }
   }
 
   /**

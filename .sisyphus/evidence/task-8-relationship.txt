@@ -1,0 +1,22 @@
+=== QA Scenario 2: Relationship Tracking ===
+2026-04-15 07:55:49 [[34mdebug[39m]: [34mConversationStore connected[39m {"service":"minecraft-ai-bot","dbPath":"./state/memory.db"}
+Initial relationship: null
+
+Applying 3 positive interactions...
+2026-04-15 07:55:49 [[34mdebug[39m]: [34mRelationship created[39m {"service":"minecraft-ai-bot","playerId":"RelPlayer","interactionType":"positive"}
+2026-04-15 07:55:49 [[34mdebug[39m]: [34mRelationship updated[39m {"service":"minecraft-ai-bot","playerId":"RelPlayer","interactionType":"positive","trust":0.54,"familiarity":0.02}
+2026-04-15 07:55:49 [[34mdebug[39m]: [34mRelationship updated[39m {"service":"minecraft-ai-bot","playerId":"RelPlayer","interactionType":"positive","trust":0.56,"familiarity":0.03}
+After 3 positive interactions: {
+  "playerId": "RelPlayer",
+  "trustScore": 0.56,
+  "familiarity": 0.03,
+  "interactionCount": 3,
+  "lastSeen": 1776239749148
+}
+
+Expected trust (0.5 + 0.06): 0.56
+Actual trust: 0.56
+Expected familiarity: 0.03
+Actual familiarity: 0.03
+
+PASS: Trust score reflects positive interactions correctly

@@ -1,0 +1,15 @@
+=== QA Scenario 3: 30-day Retention Cleanup ===
+Timestamp 31 days ago: 1773561549541 ( 2026-03-15T07:59:09.541Z )
+Inserted conversation 31 days old
+Inserted conversation 30 days old (boundary)
+Inserted conversation 1 day old
+
+Total conversations before cleanup: 5
+2026-04-15 07:59:09 [[34mdebug[39m]: [34mConversationStore connected[39m {"service":"minecraft-ai-bot","dbPath":"./state/memory.db"}
+2026-04-15 07:59:09 [[32minfo[39m]: [32mCleaned up old conversations[39m {"service":"minecraft-ai-bot","deleted":2,"olderThan":"2026-03-16T07:59:09.572Z"}
+Deleted conversations: 2
+Total conversations after cleanup: 3
+
+PASS: Conversations older than 30 days removed
+PASS: Recent conversations preserved
+2026-04-15 07:59:09 [[34mdebug[39m]: [34mConversationStore database closed[39m {"service":"minecraft-ai-bot"}

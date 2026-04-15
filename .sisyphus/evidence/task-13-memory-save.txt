@@ -1,0 +1,45 @@
+=== QA Scenario 2: Conversation Memory Save ===
+Date: 2026-04-15
+Component: src/memory/conversation-store.js
+
+Test Results:
+
+Test 1: Save conversation
+Input: 
+  - playerId: "TestPlayer"
+  - botMessage: "Hey TestPlayer! I am currently wandering near spawn. What about you?"
+  - playerMessage: "AIBot, what are you doing?"
+Result:
+  - Saved with ID: 6
+Status: PASS
+
+Test 2: Get relationship (new player)
+Input: playerId: "TestPlayer"
+Result: None (new player, no relationship yet)
+Status: PASS
+
+Test 3: Update relationship (neutral)
+Input: interactionType: "neutral"
+Result:
+  - trustScore: 0.5
+  - familiarity: 0.005
+  - interactionCount: 1
+Status: PASS
+
+Test 4: Update relationship (helpful)
+Input: interactionType: "helpful"
+Result:
+  - trustScore: 0.55 (increased)
+  - familiarity: 0.025 (increased)
+  - interactionCount: 2
+Status: PASS
+
+Test 5: Get recent conversations
+Input: playerId: "TestPlayer", limit: 5
+Result: 3 conversations retrieved
+Status: PASS
+
+All tests passed successfully.
+Relationship scoring verified:
+  - Neutral interactions: +0.5 trust base, +0.005 familiarity
+  - Helpful interactions: +0.05 trust, +0.02 familiarity

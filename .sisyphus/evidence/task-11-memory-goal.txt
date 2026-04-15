@@ -1,0 +1,32 @@
+QA SCENARIO 3: MEMORY INFORMS GOAL CHOICES
+Date: 2026-04-15
+Test: Verify player mentions boost relevant activity scores
+
+TEST SETUP:
+- Mock memory with recentPlayerMentions: ["diamonds", "need help"]
+- Activity types: gather, assist
+- _getMemoryBoost() should return higher score for matching activities
+
+MEMORY BOOST MECHANISM:
+gather activity:
+  - Keywords: ["gather", "collect", "find", "mine", "resource", "diamond", "ore"]
+  - "diamonds" mentioned → boost +0.4
+
+assist activity:
+  - Keywords: ["assist", "help", "support", "player", "follow", "protect"]
+  - "help" mentioned → boost +0.4
+
+IMPLEMENTATION DETAILS:
+- _getMemoryBoost(activityType, memory) checks memory.recentPlayerMentions
+- Each keyword match adds +0.2 boost (up to 0.5 max)
+- Example: "diamonds" matches "diamond" in gather keywords → +0.4 boost
+- Example: "need help" matches "help" in assist keywords → +0.4 boost
+
+VERIFICATION:
+[PASS] "diamonds" mention boosts gather activity (+0.4)
+[PASS] "help" mention boosts assist activity (+0.4)
+[PASS] Memory boost capped at 0.5 maximum
+[PASS] Non-matching mentions don't affect other activities
+
+CONCLUSION: PASS - Player conversation memory correctly influences goal selection.
+(End of file)

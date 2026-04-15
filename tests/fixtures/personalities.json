@@ -1,0 +1,133 @@
+{
+  "description": "Test fixtures for personality trait configurations",
+  "personalities": [
+    {
+      "id": "brave_explorer",
+      "name": "Brave Explorer",
+      "traits": {
+        "bravery": 0.9,
+        "curiosity": 0.8,
+        "patience": 0.4,
+        "aggression": 0.2,
+        "sociability": 0.6
+      },
+      "description": "High bravery and curiosity, suitable for cave exploration"
+    },
+    {
+      "id": "cautious_builder",
+      "name": "Cautious Builder",
+      "traits": {
+        "bravery": 0.3,
+        "curiosity": 0.5,
+        "patience": 0.8,
+        "aggression": 0.1,
+        "sociability": 0.7
+      },
+      "description": "Patient and cautious, ideal for complex builds"
+    },
+    {
+      "id": "aggressive_warrior",
+      "name": "Aggressive Warrior",
+      "traits": {
+        "bravery": 0.8,
+        "curiosity": 0.3,
+        "patience": 0.3,
+        "aggression": 0.9,
+        "sociability": 0.4
+      },
+      "description": "Combat-focused personality"
+    },
+    {
+      "id": "social_companion",
+      "name": "Social Companion",
+      "traits": {
+        "bravery": 0.5,
+        "curiosity": 0.6,
+        "patience": 0.6,
+        "aggression": 0.1,
+        "sociability": 0.95
+      },
+      "description": "Highly social, good for multiplayer assistance"
+    },
+    {
+      "id": "balanced_adventurer",
+      "name": "Balanced Adventurer",
+      "traits": {
+        "bravery": 0.6,
+        "curiosity": 0.6,
+        "patience": 0.6,
+        "aggression": 0.4,
+        "sociability": 0.6
+      },
+      "description": "Well-rounded personality for general tasks"
+    },
+    {
+      "id": "patient_hoarder",
+      "name": "Patient Hoarder",
+      "traits": {
+        "bravery": 0.4,
+        "curiosity": 0.7,
+        "patience": 0.9,
+        "aggression": 0.2,
+        "sociability": 0.5
+      },
+      "description": "Good for resource gathering and storage"
+    }
+  ],
+  "trait_ranges": {
+    "bravery": { "min": 0, "max": 1, "default": 0.6 },
+    "curiosity": { "min": 0, "max": 1, "default": 0.6 },
+    "patience": { "min": 0, "max": 1, "default": 0.5 },
+    "aggression": { "min": 0, "max": 1, "default": 0.3 },
+    "sociability": { "min": 0, "max": 1, "default": 0.7 }
+  },
+  "emotional_triggers": {
+    "danger_nearby": {
+      "bravery": 0.1,
+      "aggression": 0.05
+    },
+    "success": {
+      "confidence": 0.1
+    },
+    "failure": {
+      "patience": 0.05
+    },
+    "exploration": {
+      "curiosity": 0.05
+    },
+    "combat": {
+      "aggression": 0.1,
+      "bravery": 0.05
+    }
+  },
+  "response_styles": [
+    {
+      "id": "confident",
+      "tone": "confident",
+      "verbosity": "detailed",
+      "aggression": "assertive",
+      "trigger_bravery_threshold": 0.6
+    },
+    {
+      "id": "cautious",
+      "tone": "cautious",
+      "verbosity": "concise",
+      "aggression": "passive",
+      "trigger_bravery_threshold": 0.4
+    },
+    {
+      "id": "enthusiastic",
+      "tone": "enthusiastic",
+      "verbosity": "detailed",
+      "aggression": "neutral",
+      "trigger_curiosity_threshold": 0.7
+    },
+    {
+      "id": "reserved",
+      "tone": "neutral",
+      "verbosity": "minimal",
+      "aggression": "neutral",
+      "trigger_patience_threshold": 0.3
+    }
+  ]
+}

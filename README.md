@@ -8,7 +8,25 @@
 - **Voice commands** - Control bot with natural language (optional)
 - **3-layer AI** - Fast reactions + strategic planning + high-level goals
 - **Headless compatible** - Runs on servers without display
-- **Free models** - Uses Omniroute for zero-cost inference
+- **Free models** - Uses Omnirroute for zero-cost inference
+
+## 🎭 Companion Features
+
+Your bot is more than just an automation tool. It becomes a true companion through these features:
+
+### Personality System
+The bot has a customizable "Soul" defined in `personality/Soul.md`. Six personality dimensions (warmth, directness, humor, curiosity, loyalty, bravery) on a 0.0-1.0 scale create unique personalities. The bot evolves based on your interactions. High warmth + high loyalty creates a devoted companion. High curiosity + high bravery creates an adventurous explorer. See [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) for customization details.
+
+### Conversation Memory
+The bot remembers every conversation through SQLite storage. It tracks trust and familiarity scores per player, summarizes conversations every 10 messages, and retains 30 days of history. Ask the bot about past conversations and watch your relationship develop over time.
+
+### Voice Integration (Discord)
+Control your bot hands-free through Discord voice channels. Simply say "Hey bot" followed by your command. The bot uses speech-to-text for commands and text-to-speech for responses. Requires Discord bot token and server setup.
+
+### Autonomous Goals
+When idle and safe, the bot generates its own goals based on its personality. A curious bot explores. A loyal bot stays close to assist. The bot considers recent conversations (if you mentioned wanting diamonds, it might go searching).
+
+**Learn more:** [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) has complete setup instructions and examples.
 
 ## 🏗️ Architecture
 
@@ -73,8 +91,24 @@ echo '{"goal": "collect 64 oak logs"}' > state/commands.json
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design and model selection
 - [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Step-by-step build guide
+- [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) - Companion features guide (personality, memory, voice)
 
 ## 🎮 Usage Examples
+
+### Companion Mode
+
+Enable personality, memory, and autonomous behavior:
+
+```bash
+# Customize personality
+vim personality/Soul.md  # Edit trait values
+
+# View conversation history
+node examples/personality-demo.js
+
+# Run with full companion features
+node src/index.js
+```
 
 ### Autonomous Mode
 
@@ -101,14 +135,22 @@ echo '{"goal": "find diamonds"}' > state/commands.json
 
 ### Voice Control (Optional)
 
-Requires audio setup:
+Control the bot through Discord voice channels:
 
 ```bash
-# Record voice command
-./voice/voice-input.sh
+# Set up Discord integration
+export DISCORD_BOT_TOKEN=your_token_here
+export DISCORD_GUILD_ID=your_server_id
 
-# Bot will execute and respond via TTS
+# Run voice demo
+node examples/voice-demo.js <voice-channel-id>
+
+# In Discord voice channel, say:
+# "Hey bot, collect some wood"
+# "Hey bot, what's your status?"
 ```
+
+See [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) for complete Discord setup instructions.
 
 ## 🧠 How It Works
 
@@ -136,28 +178,45 @@ Requires audio setup:
 ```
 minecraft-ai-bot/
 ├── src/
-│   ├── bot.js              # Main entry point
-│   ├── pilot.js            # Layer 1: Fast reactions
-│   ├── strategy.js         # Layer 2: Planning
-│   ├── commander.js        # Layer 3: Goals
-│   ├── vision.js           # World state extraction
-│   ├── omniroute.js        # API client
-│   └── utils.js            # Utilities
+│   ├── bot.js                 # Main entry point
+│   ├── index.js               # Full 3-layer system with companion features
+│   ├── layers/
+│   │   ├── pilot.js           # Layer 1: Fast reactions
+│   │   ├── strategy.js        # Layer 2: Planning
+│   │   ├── commander.js       # Layer 3: Goals
+│   │   └── action-awareness.js # PIANO verification
+│   ├── memory/
+│   │   └── conversation-store.js # Persistent chat memory
+│   ├── voice/
+│   │   └── discord-voice.js   # Discord voice integration
+│   ├── utils/
+│   │   ├── state-manager.js   # File locking with lockfile
+│   │   ├── omniroute.js       # LLM API client
+│   │   ├── rate-limiter.js    # Bottleneck wrapper
+│   │   └── logger.js          # Winston logger
+│   └── actions/
+│       ├── crafting.js        # Recipe execution
+│       └── building.js        # Structure placement
+├── personality/
+│   └── Soul.md                # Personality configuration
 ├── prompts/
-│   ├── pilot.txt           # Pilot prompt
-│   ├── strategy.txt        # Strategy prompt
-│   └── commander.txt       # Commander prompt
-├── voice/
-│   ├── voice-input.sh      # STT (Whisper)
-│   └── voice-output.sh     # TTS (sherpa-onnx)
+│   ├── pilot.txt              # Pilot prompt
+│   ├── strategy.txt           # Strategy prompt
+│   └── commander.txt          # Commander prompt
+├── examples/
+│   ├── personality-demo.js    # Personality customization demo
+│   └── voice-demo.js          # Discord voice setup demo
 ├── state/
-│   ├── state.json          # Current bot state
-│   ├── commands.json       # Commander → Strategy
-│   ├── plan.json           # Strategy → Pilot
-│   ├── voice-command.txt   # Voice input
-│   └── voice-response.txt  # Voice output
+│   ├── state.json             # Current bot state
+│   ├── commands.json          # Commander → Strategy
+│   ├── plan.json              # Strategy → Pilot
+│   └── memory.db              # SQLite conversation storage
+├── docs/
+│   └── COMPANION_FEATURES.md  # Companion features documentation
 └── tests/
-    └── ...
+    ├── unit/                  # Unit tests
+    ├── integration/           # Layer communication tests
+    └── e2e/                   # End-to-end tests
 ```
 
 ## 🔧 Development

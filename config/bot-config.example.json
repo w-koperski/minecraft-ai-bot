@@ -1,0 +1,243 @@
+/**
+ * bot-config.example.json - Example Configuration
+ *
+ * This file documents all configuration options with examples.
+ * Copy to bot-config.json and modify for your setup:
+ *   cp config/bot-config.example.json config/bot-config.json
+ *
+ * ENVIRONMENT VARIABLE OVERRIDES:
+ * Any value can be overridden with BOT_<SECTION>_<KEY>
+ * Examples:
+ *   BOT_API_URL=https://api.example.com/v1/chat/completions
+ *   BOT_MODELS_PILOT_ID=nvidia/meta/llama-3.2-1b-instruct
+ *   BOT_VOICE_ENABLED=true
+ *   BOT_MEMORY_RETENTION_DAYS=60
+ */
+
+{
+  /**
+   * =================================================================
+   * API CONFIGURATION
+   * =================================================================
+   * OpenAI-compatible API endpoint for LLM inference via Omniroute
+   */
+  "api": {
+    "url": "http://127.0.0.1:20128/v1/chat/completions",
+    // URL of the Omniroute API gateway
+    // Override: BOT_API_URL
+
+    "key": "sk-local",
+    // API key for authentication (use env var BOT_API_KEY for production)
+    // Override: BOT_API_KEY
+
+    "timeout": 30000,
+    // Request timeout in milliseconds (range: 1000-120000)
+    // Override: BOT_API_TIMEOUT
+
+    "maxConcurrent": 10
+    // Maximum concurrent API requests (range: 1-100)
+    // Note: Stay under 448 req/min (80% of 560 RPM limit)
+    // Override: BOT_API_MAX_CONCURRENT
+  },
+
+  /**
+   * =================================================================
+   * MODEL CONFIGURATION
+   * =================================================================
+   * Model selection for each AI layer
+   * Follows pattern from src/utils/omniroute.js:12-28
+   *
+   * PILOT (Layer 1): Fast reactions, hazard avoidance
+   * - Model: Llama 3.2 1B (210ms latency)
+   * - Frequency: 2-5 Hz (200-500ms intervals)
+   *
+   * STRATEGY (Layer 2): Multi-step planning, pathfinding
+   * - Model: Qwen 2.5 7B (410ms latency)
+   * - Frequency: 0.2-0.5 Hz (2-5s intervals)
+   *
+   * COMMANDER (Layer 3): High-level goals, monitoring
+   * - Model: Claude Sonnet 4.5 (~1s latency)
+   * - Frequency: 0.03-0.1 Hz (10-30s intervals)
+   */
+  "models": {
+    "pilot": {
+      "id": "nvidia/meta/llama-3.2-1b-instruct",
+      // Model identifier for the Pilot layer
+      // Override: BOT_MODELS_PILOT_ID
+
+      "name": "Pilot",
+      // Display name for this model layer
+
+      "latencyTarget": 210
+      // Target latency in milliseconds (range: 50-5000)
+      // Used for performance monitoring
+      // Override: BOT_MODELS_PILOT_LATENCY_TARGET
+    },
+    "strategy": {
+      "id": "nvidia/qwen/qwen2.5-7b-instruct",
+      // Model identifier for the Strategy layer
+      // Override: BOT_MODELS_STRATEGY_ID
+
+      "name": "Strategy",
+      // Display name for this model layer
+
+      "latencyTarget": 410
+      // Target latency in milliseconds (range: 50-5000)
+      // Override: BOT_MODELS_STRATEGY_LATENCY_TARGET
+    },
+    "commander": {
+      "id": "claude-sonnet-4.5",
+      // Model identifier for the Commander layer
+      // Override: BOT_MODELS_COMMANDER_ID
+
+      "name": "Commander",
+      // Display name for this model layer
+
+      "latencyTarget": 1000
+      // Target latency in milliseconds (range: 50-5000)
+      // Override: BOT_MODELS_COMMANDER_LATENCY_TARGET
+    }
+  },
+
+  /**
+   * =================================================================
+   * PERSONALITY CONFIGURATION
+   * =================================================================
+   * Template-based personality system (NO ML models per scope limit)
+   * Personality affects response style and behavior patterns
+   */
+  "personality": {
+    "name": "AIBot",
+    // Bot's display name in chat and interactions
+    // Override: BOT_PERSONALITY_NAME
+
+    "greeting": "Hello! I'm your Minecraft companion.",
+    // Initial greeting message when bot starts
+    // Override: BOT_PERSONALITY_GREETING
+
+    "temperature": 0.7,
+    // Randomness of responses (range: 0.0-2.0)
+    // 0.0 = deterministic, focused responses
+    // 1.0 = balanced creativity
+    // 2.0 = very creative, unpredictable responses
+    // Override: BOT_PERSONALITY_TEMPERATURE
+
+    "maxTokens": 2048,
+    // Maximum response length (range: 1-32000)
+    // Override: BOT_PERSONALITY_MAX_TOKENS
+
+    "responseStyle": "helpful",
+    // Response style: "helpful", "concise", "detailed", "playful"
+    // Override: BOT_PERSONALITY_RESPONSE_STYLE
+
+    "traits": ["curious", "helpful", "cautious"]
+    // Personality traits that influence behavior
+    // Available traits: curious, helpful, cautious, brave, playful, methodical
+    // Override: BOT_PERSONALITY_TRAITS (comma-separated)
+  },
+
+  /**
+   * =================================================================
+   * AUTONOMY CONFIGURATION
+   * =================================================================
+   * Controls how independently the bot operates
+   * Higher autonomy = less human intervention required
+   */
+  "autonomy": {
+    "enabled": true,
+    // Enable autonomous operation (override: BOT_AUTONOMY_ENABLED)
+
+    "maxActionsPerMinute": 30,
+    // Maximum actions per minute (range: 1-100)
+    // Prevents rate limit issues with API
+    // Override: BOT_AUTONOMY_MAX_ACTIONS_PER_MINUTE
+
+    "confirmDangerousActions": true,
+    // Require confirmation before dangerous actions
+    // (e.g., entering nether, attacking players)
+    // Override: BOT_AUTONOMY_CONFIRM_DANGEROUS_ACTIONS
+
+    "allowPlayerInteraction": false,
+    // Allow bot to interact with other players
+    // (trade, follow instructions, etc.)
+    // Override: BOT_AUTONOMY_ALLOW_PLAYER_INTERACTION
+
+    "autoReconnect": true,
+    // Automatically reconnect if disconnected
+    // Override: BOT_AUTONOMY_AUTO_RECONNECT
+
+    "restartOnError": false
+    // Automatically restart bot on critical errors
+    // Override: BOT_AUTONOMY_RESTART_ON_ERROR
+  },
+
+  /**
+   * =================================================================
+   * VOICE CONFIGURATION
+   * =================================================================
+   * Discord-based voice integration
+   * Voice is optional and disabled by default (text is default)
+   * Set voice.enabled=true to enable voice interaction
+   */
+  "voice": {
+    "enabled": false,
+    // Master switch for voice features
+    // Override: BOT_VOICE_ENABLED
+
+    "inputEnabled": false,
+    // Enable voice input (speech-to-text)
+    // Requires: voice.enabled=true and Discord bot setup
+    // Override: BOT_VOICE_INPUT_ENABLED
+
+    "outputEnabled": false,
+    // Enable voice output (text-to-speech)
+    // Requires: voice.enabled=true and TTS setup
+    // Override: BOT_VOICE_OUTPUT_ENABLED
+
+    "volume": 0.8,
+    // Output volume (range: 0.0-1.0)
+    // Override: BOT_VOICE_VOLUME
+
+    "voiceId": "en_US-lessac-high",
+    // TTS voice identifier
+    // Common options: en_US-lessac-high, en_US-lessac-medium, en_US-lessac-low
+    // Override: BOT_VOICE_VOICE_ID
+
+    "language": "en",
+    // Primary language for STT and responses
+    // Override: BOT_VOICE_LANGUAGE
+
+    "pushToTalk": false
+    // Use push-to-talk mode instead of voice activation
+    // Override: BOT_VOICE_PUSH_TO_TALK
+  },
+
+  /**
+   * =================================================================
+   * MEMORY CONFIGURATION
+   * =================================================================
+   * SQLite-based persistent memory with configurable retention
+   * Per decisions.md: 30-day retention by default
+   */
+  "memory": {
+    "enabled": true,
+    // Enable persistent memory storage
+    // Override: BOT_MEMORY_ENABLED
+
+    "retentionDays": 30,
+    // How long to keep memory entries (range: 1-365)
+    // Override: BOT_MEMORY_RETENTION_DAYS
+
+    "maxEntries": 10000,
+    // Maximum memory entries before cleanup
+    // Override: BOT_MEMORY_MAX_ENTRIES
+
+    "compressOldEntries": true,
+    // Compress entries older than retentionDays/2
+    // Override: BOT_MEMORY_COMPRESS_OLD_ENTRIES
+
+    "persistConversation": true
+    // Remember conversation context across sessions
+    // Override: BOT_MEMORY_PERSIST_CONVERSATION
+  }
+}

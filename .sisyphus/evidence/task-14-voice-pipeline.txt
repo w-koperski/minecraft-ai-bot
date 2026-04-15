@@ -1,0 +1,50 @@
+=== QA SCENARIO 1: Voice Message Pipeline ===
+
+TEST DATE: 2026-04-15
+
+OBJECTIVE:
+Test that voice messages flow correctly through the STT → chat handler → TTS pipeline.
+
+TEST SETUP:
+- VoiceHandler created with voice enabled, keyword "hey bot"
+- Mock bot with entity position and health
+- Mock DiscordVoice simulating STT returning "hey bot collect wood"
+- Mock chat handler with state manager
+
+TEST EXECUTION:
+
+1. Input: "hey bot collect wood"
+2. STT Processing: Transcription received
+3. Keyword Detection: "hey bot" found in text
+4. Command Extraction: "collect wood" extracted
+5. Chat Handler Processing: 
+   - Action: collect
+   - Target: wood
+   - Amount: 64
+   - Source: voice
+6. Response Generation: "Okay, collecting wood (64 items)"
+7. TTS Output: Response spoken via TTS
+
+RESULTS:
+✓ STT received and logged input
+✓ Keyword detected successfully
+✓ Command extracted correctly
+✓ State written with voice source marker
+✓ Response generated and returned
+✓ TTS spoke the response
+✓ Interaction logged for debugging
+
+LOG OUTPUT:
+[VoiceHandler] Interaction: {"type":"input","text":"hey bot collect wood"}
+[VoiceHandler] Processing command: "collect wood"
+[STATE WRITE]: {"action":"collect","target":"wood","amount":64,"source":"voice"}
+[TTS OUTPUT]: Okay, collecting wood (64 items)
+[VoiceHandler] Interaction: {"type":"output","text":"Okay, collecting wood (64 items)"}
+
+CONCLUSION:
+✅ Voice message pipeline working correctly
+✅ All steps executed in sequence
+✅ Proper logging throughout
+✅ Response generated and spoken via TTS
+
+STATUS: PASSED

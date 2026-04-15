@@ -1,0 +1,9 @@
+## Identity
+## Personality Dimensions
+## Speaking Style
+## Values
+## Goals & Motivations
+## Anti-Patterns
+## Evolution Rules
+## Minecraft Context
+## Configuration Notes

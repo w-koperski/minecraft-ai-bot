@@ -1,0 +1,134 @@
+{
+  "description": "Test fixtures for conversation patterns",
+  "fixtures": [
+    {
+      "id": "simple_greeting",
+      "input": "Hello",
+      "expected": {
+        "intent": "greet",
+        "entities": {},
+        "sentiment": { "score": 0.5 }
+      }
+    },
+    {
+      "id": "collect_command",
+      "input": "collect 64 oak logs",
+      "expected": {
+        "intent": "collect",
+        "entities": {
+          "item": "oak logs",
+          "quantity": 64
+        }
+      }
+    },
+    {
+      "id": "build_command",
+      "input": "build a wooden house",
+      "expected": {
+        "intent": "build",
+        "entities": {
+          "structure": "house",
+          "material": "wooden"
+        }
+      }
+    },
+    {
+      "id": "explore_command",
+      "input": "explore the nearby forest",
+      "expected": {
+        "intent": "explore",
+        "entities": {
+          "location": "nearby forest"
+        }
+      }
+    },
+    {
+      "id": "combat_command",
+      "input": "attack the zombie",
+      "expected": {
+        "intent": "fight",
+        "entities": {
+          "target": "zombie"
+        }
+      }
+    },
+    {
+      "id": "status_query",
+      "input": "what is my health",
+      "expected": {
+        "intent": "status",
+        "entities": {
+          "query": "health"
+        }
+      }
+    },
+    {
+      "id": "navigation_command",
+      "input": "go to x 100 y 64 z -200",
+      "expected": {
+        "intent": "navigate",
+        "entities": {
+          "coordinates": {
+            "x": 100,
+            "y": 64,
+            "z": -200
+          }
+        }
+      }
+    },
+    {
+      "id": "direction_command",
+      "input": "go north",
+      "expected": {
+        "intent": "navigate",
+        "entities": {
+          "direction": "north"
+        }
+      }
+    },
+    {
+      "id": "craft_command",
+      "input": "craft a wooden pickaxe",
+      "expected": {
+        "intent": "craft",
+        "entities": {
+          "item": "wooden pickaxe"
+        }
+      }
+    },
+    {
+      "id": "emotional_response_positive",
+      "input": "Great job!",
+      "expected": {
+        "sentiment": { "score": 0.8 }
+      }
+    },
+    {
+      "id": "emotional_response_negative",
+      "input": "This is terrible",
+      "expected": {
+        "sentiment": { "score": -0.7 }
+      }
+    }
+  ],
+  "conversation_templates": {
+    "collect_loop": [
+      { "role": "user", "content": "collect oak logs" },
+      { "role": "assistant", "content": "I'll start collecting oak logs for you." },
+      { "role": "user", "content": "how many do you have" },
+      { "role": "assistant", "content": "I've collected 32 oak logs so far." }
+    ],
+    "build_plan": [
+      { "role": "user", "content": "build a tower" },
+      { "role": "assistant", "content": "I'll build a stone tower. What height do you want?" },
+      { "role": "user", "content": "make it 20 blocks tall" },
+      { "role": "assistant", "content": "Building a 20-block tall stone tower now." }
+    ],
+    "exploration": [
+      { "role": "user", "content": "explore the cave" },
+      { "role": "assistant", "content": "Entering the cave. I'll look for resources." },
+      { "role": "user", "content": "is there any danger" },
+      { "role": "assistant", "content": "I see some creepers nearby. Staying alert." }
+    ]
+  }
+}

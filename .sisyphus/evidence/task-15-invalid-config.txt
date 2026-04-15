@@ -1,0 +1,15 @@
+=== INVALID CONFIG TEST (Temperature 3.0) ===
+Date: 2026-04-15T09:52:07.759Z
+Test: temperature out of range (3.0 > 2)
+Valid: false
+Errors: [
+  "Invalid temperature: 3 (must be 0-2)"
+]
+Warnings: [
+  "Autonomy section is optional (using defaults)",
+  "Voice section is optional (using defaults)",
+  "Memory section is optional (using defaults)"
+]
+
+EXPECTED: valid=false with temperature error
+RESULT: PASS

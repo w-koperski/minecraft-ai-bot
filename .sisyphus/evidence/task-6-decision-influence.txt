@@ -1,0 +1,11 @@
+QA Scenario 2: Personality influences decision
+
+Scored options (sorted by personality alignment):
+  protection: 2.000
+  social: 2.000
+  combat: 1.875
+  exploration: 1.530
+
+High loyalty (0.95) boosts protection actions
+High curiosity (0.7) boosts exploration actions
+PASS: Personality traits influence decision scores

@@ -1,0 +1,27 @@
+=== QA Scenario 1: Successful API call ===
+Date: 2026-04-15
+
+Test: OpenAI-compatible client with Omniroute endpoint
+
+Command:
+node -e "const OpenAIClient = require('./src/utils/openai-client'); ..."
+
+Result: SUCCESS
+
+Output:
+=== QA Scenario 1: Successful API call ===
+Testing OpenAI-compatible client with Omniroute endpoint...
+2026-04-15 07:21:49 [debug]: OpenAI-Client: Sending chat request {"service":"minecraft-ai-bot","layer":"pilot","model":"nvidia/meta/llama-3.2-1b-instruct","messageCount":1,"temperature":0.7,"maxTokens":50}
+SUCCESS: Response received
+Content: Hello, how are you?
+Model: meta/llama-3.2-1b-instruct
+Usage: {"prompt_tokens":2016,"completion_tokens":6,"total_tokens":2022}
+Metrics: {"total":1,"successful":1,"failed":0,"retried":0,"avgLatencyMs":304,"successRate":"100.0%"}
+2026-04-15 07:21:50 [info]: OpenAI-Client: Client stopped {"service":"minecraft-ai-bot"}
+Client stopped cleanly
+
+Verification:
+✓ Response text printed (Hello, how are you?)
+✓ No errors thrown
+✓ Metrics tracked (1 request, 100% success rate)
+✓ Client stopped cleanly

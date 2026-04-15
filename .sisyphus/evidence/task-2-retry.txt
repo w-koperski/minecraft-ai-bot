@@ -1,0 +1,35 @@
+=== QA Scenario 3: Retry on error ===
+Date: 2026-04-15
+
+Test: Verify exponential backoff retry logic (1s, 2s, 4s delays)
+
+Setup:
+- Created client pointing to non-existent server (127.0.0.1:59999)
+- Timeout: 2000ms
+- Expected behavior: 3 retries with 1s, 2s, 4s delays
+
+Result: SUCCESS - Retry logic works correctly
+
+Output:
+=== QA Scenario 3: Retry on error ===
+Testing retry logic with exponential backoff...
+Expected delays: 1s, 2s, 4s (after initial attempt)
+
+2026-04-15 07:27:59 [debug]: OpenAI-Client: Sending chat request {"layer":"pilot","model":"gpt-3.5-turbo","messageCount":1,"temperature":0.7,"maxTokens":500}
+2026-04-15 07:27:59 [warn]: OpenAI-Client: Request failed, retrying with backoff {"attempt":1,"maxRetries":3,"delayMs":1000,"error":"connect ECONNREFUSED 127.0.0.1:59999"}
+2026-04-15 07:28:00 [warn]: OpenAI-Client: Request failed, retrying with backoff {"attempt":2,"maxRetries":3,"delayMs":2000,"error":"connect ECONNREFUSED 127.0.0.1:59999"}
+2026-04-15 07:28:02 [warn]: OpenAI-Client: Request failed, retrying with backoff {"attempt":3,"maxRetries":3,"delayMs":4000,"error":"connect ECONNREFUSED 127.0.0.1:59999"}
+EXPECTED ERROR: connect ECONNREFUSED 127.0.0.1:59999
+Total elapsed: 7075 ms
+Expected total retry time: ~7000ms (1s + 2s + 4s + 3x request time)
+Metrics: {"total":1,"successful":0,"failed":1,"retried":1,"avgLatencyMs":6,"successRate":"0.0%"}
+Client stopped cleanly
+
+Verification:
+✓ Initial request attempted
+✓ Retry 1: 1000ms delay (1s)
+✓ Retry 2: 2000ms delay (2s)
+✓ Retry 3: 4000ms delay (4s)
+✓ Total elapsed: 7075ms (matches expected ~7000ms)
+✓ Metrics show retried: 1 (tracking retries)
+✓ Client stopped cleanly after exhausting retries

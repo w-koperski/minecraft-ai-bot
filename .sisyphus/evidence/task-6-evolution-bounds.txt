@@ -1,0 +1,10 @@
+QA Scenario 3: Personality evolution with bounds
+Trait bounds: MIN=0.2, MAX=1.0
+
+1. Test upper bound (warmth):
+   After 15 appreciations, warmth: 1
+   Upper bound enforced: true
+
+2. Test reset:
+   After reset, warmth: 0.8
+   PASS: Trait bounds working correctly

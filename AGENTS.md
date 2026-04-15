@@ -1,52 +1,56 @@
 # AGENTS.md - Minecraft AI Bot
 
-**Status:** Planning complete, no implementation yet  
-**Last updated:** 2026-04-14
+**Status:** MVP implemented, tests passing (129/129)  
+**Last updated:** 2026-04-15
 
 ---
 
 ## Project State
 
-This is a **planning-only repository**. No source code exists yet - only comprehensive documentation (7000+ lines across 12 markdown files).
+**Implemented (9400+ lines):**
+- 3-layer AI system (Pilot/Strategy/Commander)
+- Core utilities (state-manager, rate-limiter, omniroute client, logger)
+- Action Awareness (PIANO-inspired verification)
+- Enhanced vision system
+- Extended features (memory, chat, safety, crafting, building)
+- Test suite (unit, integration, e2e) - 70% coverage target
 
-**What exists:**
-- Architecture design (3-layer AI: Pilot/Strategy/Commander)
-- Detailed implementation plans (16 phases, 17-21h estimated)
-- Parallel development guide (4 independent tracks)
-- Configuration templates (`.env.example`)
-
-**What doesn't exist:**
-- `src/` directory - no code written
-- `tests/` directory - no tests
-- `package.json` - dependencies not installed
-- `state/`, `prompts/`, `voice/` directories - runtime structure not created
+**Not implemented:**
+- Voice integration (see `VOICE_OPTIONS.md`)
+- Prompts directory (LLM prompts are inline in layer files)
 
 ---
 
-## Quick Start Commands
+## Quick Start
 
-### First-time setup
+### Setup
 ```bash
-# Install dependencies (creates package.json if missing)
-npm init -y
-npm install mineflayer mineflayer-pathfinder mineflayer-collectblock \
-  axios bottleneck winston dotenv lockfile sqlite3 minecraft-data vec3
-
-# Create directory structure
-mkdir -p src/{utils,layers,memory,chat,actions,safety} \
-  tests/{unit,integration,e2e,mocks} \
-  state logs prompts voice docker
-
-# Configure environment
+npm install
 cp .env.example .env
 # Edit .env: set MINECRAFT_HOST, OMNIROUTE_URL, OMNIROUTE_API_KEY
 ```
 
-### No test/build commands yet
-The project has no `package.json` scripts defined. After implementation:
-- Tests will use Jest
-- No build step (plain Node.js)
-- Run with: `node src/bot.js` or `node src/index.js`
+### Run bot
+```bash
+node src/index.js    # Full 3-layer system
+node src/bot.js      # Standalone (no layers)
+```
+
+### Test commands
+```bash
+npm test                    # Unit + integration (excludes e2e)
+npm run test:unit           # Unit tests only
+npm run test:integration    # Integration tests only
+npm run test:e2e            # E2E tests (requires Minecraft server)
+npm run test:coverage       # With coverage report
+```
+
+### Minecraft server (for e2e tests)
+```bash
+npm run mc:start     # Start Docker container
+npm run mc:stop      # Stop and remove container
+npm run mc:restart   # Restart container
+```
 
 ---
 
@@ -74,64 +78,96 @@ Every action must be verified before next decision. Prevents hallucination compo
 
 ---
 
-## Implementation Approach
+## Code Structure
 
-### Recommended: MVP-first (Option 3 from QUICK_START_PROMETHEUS.md)
+```
+src/
+├── index.js              # Main orchestrator (all 3 layers)
+├── bot.js                # Standalone bot (no AI layers)
+├── layers/
+│   ├── pilot.js          # Fast reactions (200-2000ms adaptive)
+│   ├── strategy.js       # Multi-step planning
+│   ├── commander.js      # High-level monitoring
+│   └── action-awareness.js  # PIANO verification wrapper
+├── utils/
+│   ├── state-manager.js  # File locking with lockfile
+│   ├── omniroute.js      # LLM API client
+│   ├── rate-limiter.js   # Bottleneck wrapper
+│   ├── logger.js         # Winston logger
+│   ├── vision-enhanced.js # Game state extraction
+│   ├── schemas.js        # JSON validation
+│   └── errors.js         # Custom error types
+├── actions/
+│   ├── crafting.js       # Recipe execution
+│   └── building.js       # Structure placement
+├── memory/
+│   └── memory-store.js   # SQLite persistence
+├── chat/
+│   └── chat-handler.js   # In-game commands
+└── safety/
+    └── safety-manager.js # Griefing prevention
 
-**Phase 1: Foundation (3-4h)**
-- State manager with file locking (`lockfile` library)
-- Rate limiter (448 req/min with `bottleneck`)
-- Logger (`winston` - console + file)
-- Omniroute API client with retry logic
-
-**Phase 2: Bot Core (3-4h)**
-- Enhanced vision (extract full game state from Mineflayer)
-- Action Awareness wrapper (verify every action outcome)
-- Pilot layer only (no Strategy/Commander yet)
-- Basic bot.js (connect, spawn, survive)
-
-**Phase 3: Test survival (30min)**
-- Bot connects and survives 5+ minutes
-- Avoids lava, mobs, falls
-- Responds to immediate threats
-
-**Phase 4: Add planning layers (2-3h)**
-- Strategy layer (multi-step plans)
-- Commander layer (high-level goals)
-- File-based communication (commands.json, plan.json)
-
-**Phase 5: Extended features (6-7h)**
-- Persistent memory (SQLite)
-- In-game chat commands (`!bot collect wood`)
-- Crafting/building actions
-- Safety manager (prevent griefing)
-
-**Phase 6: Testing (2-3h)**
-- Unit tests (70% coverage target)
-- Integration tests (layer communication)
-- E2E tests (requires Minecraft server)
-
-### Alternative: Parallel tracks (for teams)
-
-See `IMPLEMENTATION_GUIDE_PARALLEL.md` for 4 independent development tracks that can run simultaneously with 3-4 developers.
+tests/
+├── unit/                 # Isolated component tests
+├── integration/          # Layer communication tests
+├── e2e/                  # Full bot lifecycle tests
+├── mocks/                # Test doubles
+└── helpers/              # Test utilities
+```
 
 ---
 
-## Critical Files to Read
+## Key Implementation Details
 
-**Start here:**
-1. `QUICK_START_PROMETHEUS.md` - Implementation strategy
-2. `IMPLEMENTATION_GUIDE_PARALLEL.md` - Detailed component specs
-3. `ARCHITECTURE.md` - System design rationale
+### State Management
+- **File-based** communication between layers (not in-memory)
+- Uses `lockfile` library with 5s timeout for thread safety
+- State files: `state/state.json`, `state/commands.json`, `state/plan.json`
+- Why files? Commander runs as separate process, allows manual inspection/intervention
 
-**Deep dives:**
-4. `PHASE_14_PIANO.md` - Action Awareness technique (prevents hallucinations)
-5. `PHASE_15_ENHANCED_VISION.md` - Full game state extraction
-6. `PHASE_16_TESTING.md` - Testing strategy
+### Action Awareness (src/layers/action-awareness.js)
+- Wraps every bot action with outcome verification
+- Compares expected vs actual state changes
+- Logs mismatches to prevent hallucination loops
+- Critical for preventing "bot thinks it succeeded but didn't" failures
 
-**Reference:**
-7. `IMPLEMENTATION_PLAN_V2.md` - Core phases 0-7
-8. `IMPLEMENTATION_PLAN_V2.1_EXTENDED.md` - Extended phases 8-13
+### Adaptive Pilot Loop (src/layers/pilot.js)
+- **Danger mode (200ms):** Hostile mobs <16 blocks, lava <8 blocks, health <6
+- **Active mode (500ms):** Executing actions from plan
+- **Idle mode (2000ms):** No threats, no actions
+- Stuck detection: <0.1 block movement for 10s triggers intervention
+
+### Rate Limiting
+- Omniroute API: 560 RPM hard limit
+- Bot uses 448 RPM (80% buffer) via `bottleneck` library
+- Shared limiter across all 3 layers to prevent 429 errors
+
+---
+
+## Testing Strategy
+
+**Unit tests (tests/unit/):**
+- All utilities in isolation with mocks
+- 129 tests passing, 70% coverage target
+- Run: `npm run test:unit`
+
+**Integration tests (tests/integration/):**
+- Layer communication via state files
+- File locking under concurrent access
+- Run: `npm run test:integration`
+
+**E2E tests (tests/e2e/):**
+- Requires Minecraft server (Docker: `npm run mc:start`)
+- Full bot lifecycle: connect → spawn → survive → disconnect
+- Goal completion, error recovery, chat commands
+- Run: `npm run test:e2e` (30s timeout per test)
+- **Important:** E2E tests run sequentially (`maxWorkers: 1`) to avoid server conflicts
+
+### Test quirks
+- E2E tests use `forceExit: true` and `detectOpenHandles: false` (Mineflayer keeps connections)
+- E2E has retry logic (`retryTimes: 2`) for network flakiness
+- Coverage only runs on unit+integration, not e2e
+- Default `npm test` excludes e2e tests (use `npm run test:e2e` explicitly)
 
 ---
 
@@ -156,25 +192,6 @@ See `.env.example` for full configuration template.
 
 ---
 
-## State Management
-
-**File-based communication between layers:**
-- `state/state.json` - Current bot state (vision output)
-- `state/commands.json` - Commander → Strategy (high-level goals)
-- `state/plan.json` - Strategy → Pilot (action sequences)
-- `state/voice-command.txt` - Voice input (optional)
-- `state/voice-response.txt` - Voice output (optional)
-
-**Why files, not memory?**
-- Commander runs as separate OpenClaw subagent (different process)
-- Allows inspection/debugging (cat state.json)
-- Enables manual intervention (echo '{"goal": "collect wood"}' > commands.json)
-
-**Thread safety:**
-Use `lockfile` library with 5s timeout. All reads/writes must acquire lock first.
-
----
-
 ## Dependencies
 
 **Core:**
@@ -189,12 +206,12 @@ Use `lockfile` library with 5s timeout. All reads/writes must acquire lock first
 
 **Extended:**
 - `sqlite3` - Persistent memory
-- `express` + `ws` - Web UI (optional)
 - `minecraft-data` - Game data
 - `vec3` - Vector math
 
 **Dev:**
 - `jest` - Testing framework
+- `jest-junit` - JUnit XML reporter
 - `@types/node` - TypeScript types (optional)
 
 ---
@@ -223,31 +240,6 @@ Use `lockfile` library with 5s timeout. All reads/writes must acquire lock first
 
 ---
 
-## Testing Strategy
-
-**Unit tests (tests/unit/):**
-- All utilities (state-manager, rate-limiter, logger, omniroute)
-- Vision system (mock Mineflayer bot)
-- Action Awareness (mock action outcomes)
-- Each layer in isolation (mock dependencies)
-
-**Integration tests (tests/integration/):**
-- Layer communication (Pilot ↔ Strategy ↔ Commander)
-- State file locking (concurrent access)
-- Rate limiter under load
-
-**E2E tests (tests/e2e/):**
-- Full bot lifecycle (connect → spawn → survive → disconnect)
-- Goal completion (collect wood, build house)
-- Error recovery (death, stuck, disconnection)
-- Requires running Minecraft server (use Docker)
-
-**Coverage target:** 70% minimum
-
-**Run tests:** `npm test` (after implementation)
-
----
-
 ## Voice Integration (Optional)
 
 **Not implemented yet.** See `VOICE_OPTIONS.md` for 3 approaches:
@@ -272,17 +264,17 @@ Voice adds 3-4s latency (STT + processing + TTS), suitable for strategy commands
 
 ## Git Workflow
 
-**Current state:** Planning branch, no implementation commits yet.
+**Current state:** MVP implementation complete (commit ac6d955)
 
-**Commit history shows:**
-- 10 commits, all documentation
-- Last commit: "Add project summary - planning complete, ready for implementation"
-- No code changes, only markdown files
+**Recent commits:**
+- `ac6d955` - Complete MVP implementation (all layers, tests passing)
+- `f4fe71a` - Add Pilot layer with adaptive loop
+- Earlier commits: Planning and documentation
 
-**When implementing:**
-- Create feature branches per track (track-a-foundation, track-b-bot-core, etc.)
-- Commit frequently with descriptive messages
-- Test before merging to main
+**Branch strategy:**
+- Main branch has working MVP
+- Create feature branches for new features
+- Test before merging
 - Tag releases (v0.1-mvp, v0.2-strategy, v1.0-full)
 
 ---
@@ -296,9 +288,9 @@ Voice adds 3-4s latency (STT + processing + TTS), suitable for strategy commands
 | Commander | Claude Sonnet 4.5 | ~1s | 0.03-0.1 Hz | Monitoring |
 
 **Adaptive Pilot loop:**
-- Normal: 500ms (2 Hz)
-- Threat detected: 200ms (5 Hz)
-- Idle/safe: 2000ms (0.5 Hz)
+- Danger: 200ms (5 Hz) - hostile mobs, lava, low health
+- Active: 500ms (2 Hz) - executing actions
+- Idle: 2000ms (0.5 Hz) - no threats, no actions
 
 ---
 
@@ -324,4 +316,8 @@ Bot is complete when:
 
 ---
 
-**Next step:** Run setup commands above, then follow `QUICK_START_PROMETHEUS.md` for implementation.
+**Next steps:** 
+- Run `npm test` to verify all tests pass
+- Start Minecraft server: `npm run mc:start`
+- Run bot: `node src/index.js`
+- See planning docs for future enhancements

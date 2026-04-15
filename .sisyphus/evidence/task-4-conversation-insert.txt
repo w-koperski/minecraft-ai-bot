@@ -1,0 +1,14 @@
+QA Scenario 2: Insert and query conversation
+============================================
+Date: 2026-04-15
+Tool: Node.js sqlite3
+
+Steps:
+1. INSERT INTO conversations (player_id, bot_message, player_message, timestamp, context) VALUES ('player1', 'Hello!', 'Hi bot', <timestamp>, 'greeting')
+2. SELECT * FROM conversations WHERE player_id='player1'
+
+Results:
+- Insert successful with lastID: 1
+- Query returned: [{"id":1,"player_id":"player1","bot_message":"Hello!","player_message":"Hi bot","timestamp":1776237577794,"context":"greeting"}]
+
+Verification: PASS - Conversation stored and retrieved correctly

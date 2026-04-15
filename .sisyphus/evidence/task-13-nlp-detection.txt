@@ -1,0 +1,40 @@
+=== QA Scenario 1: Natural Language Detection ===
+Date: 2026-04-15
+Component: src/chat/nlp-handler.js
+
+Test Results:
+
+Test 1: Direct greeting
+Input: "Hey AIBot, what are you doing?"
+Result:
+  - addressed: true
+  - confidence: 0.85
+  - reason: Likely addressed to bot
+Status: PASS
+
+Test 2: Question with context (bot spoke last)
+Input: "How are you?"
+Context: { botSpokeLast: true, messagesSinceBotSpoke: 0 }
+Result:
+  - addressed: true
+  - confidence: 0.95
+  - reason: Second-person pronoun with bot context (spoke last)
+Status: PASS
+
+Test 3: Random message not addressed
+Input: "I found some diamonds!"
+Result:
+  - addressed: false
+  - confidence: 0.00
+  - reason: Not clearly addressed to bot
+Status: PASS
+
+Test 4: Command prefix
+Input: "!AIBot collect wood"
+Result:
+  - addressed: true
+  - confidence: 1.00
+  - reason: Command prefix
+Status: PASS
+
+All tests passed successfully.

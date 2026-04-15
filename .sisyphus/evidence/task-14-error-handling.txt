@@ -1,0 +1,74 @@
+=== QA SCENARIO 3: Voice Error Handling ===
+
+TEST DATE: 2026-04-15
+
+OBJECTIVE:
+Test graceful error handling with fallback to text chat.
+
+TEST SETUP:
+- VoiceHandler with various error scenarios
+- Mock DiscordVoice throwing errors
+- Fallback mechanisms tested
+
+TEST CASES:
+
+1. Voice disabled by default:
+   - Config: { enabled: false }
+   - Expected: getStatus().enabled = false
+   - Result: ✓ Status shows enabled=false
+   - Status: PASSED
+
+2. Voice not initialized:
+   - Handler created but not initialized
+   - Expected: handleVoiceMessage() returns null
+   - Result: ✓ Returns null, logs warning "Voice handler not ready or disabled"
+   - Status: PASSED
+
+3. Connection error with fallback enabled:
+   - Config: { fallbackToText: true }
+   - Error: "not connected"
+   - Expected: User-friendly error message
+   - Result: ✓ "Voice not connected. Please try again or use text chat."
+   - Status: PASSED
+
+4. Connection error with fallback disabled:
+   - Config: { fallbackToText: false }
+   - Error: "not connected"
+   - Expected: Returns null
+   - Result: ✓ Null returned, error logged
+   - Status: PASSED
+
+5. Status reporting:
+   - Verify all status fields populated
+   - Fields: enabled, initialized, processing, activationMode, connected, keyword, requireKeyword
+   - Result: ✓ All fields correctly reported
+   - Status: PASSED
+
+ERROR MESSAGES:
+- "not connected" → "Voice not connected. Please try again or use text chat."
+- "timeout" → "Voice timeout. Please speak more clearly or try again."
+- "transcription" → "Could not understand. Please try again."
+- Other errors → "Voice error occurred. Falling back to text chat."
+
+GRACEFUL SHUTDOWN:
+- disconnect() called on cleanup
+- chatHandler.remove() called
+- Event listeners cleaned up
+- Resources released
+
+RESULTS:
+✓ Disabled by default (security)
+✓ Uninitialized state handled
+✓ Connection errors handled gracefully
+✓ Fallback messages user-friendly
+✓ Null returns when fallback disabled
+✓ Comprehensive status reporting
+✓ Proper cleanup on shutdown
+
+CONCLUSION:
+✅ Error handling working correctly
+✅ Multiple fallback strategies
+✅ User-friendly error messages
+✅ Proper resource cleanup
+
+STATUS: PASSED

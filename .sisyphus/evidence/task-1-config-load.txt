@@ -1,0 +1,62 @@
+{
+  "api": {
+    "url": "http://127.0.0.1:20128/v1/chat/completions",
+    "key": "sk-local",
+    "timeout": 30000,
+    "maxConcurrent": 10
+  },
+  "models": {
+    "pilot": {
+      "id": "nvidia/meta/llama-3.2-1b-instruct",
+      "name": "Pilot",
+      "latencyTarget": 210
+    },
+    "strategy": {
+      "id": "nvidia/qwen/qwen2.5-7b-instruct",
+      "name": "Strategy",
+      "latencyTarget": 410
+    },
+    "commander": {
+      "id": "claude-sonnet-4.5",
+      "name": "Commander",
+      "latencyTarget": 1000
+    }
+  },
+  "personality": {
+    "name": "AIBot",
+    "greeting": "Hello! I'm your Minecraft companion.",
+    "temperature": 0.7,
+    "maxTokens": 2048,
+    "responseStyle": "helpful",
+    "traits": [
+      "curious",
+      "helpful",
+      "cautious"
+    ]
+  },
+  "autonomy": {
+    "enabled": true,
+    "maxActionsPerMinute": 30,
+    "confirmDangerousActions": true,
+    "allowPlayerInteraction": false,
+    "autoReconnect": true,
+    "restartOnError": false
+  },
+  "voice": {
+    "enabled": false,
+    "inputEnabled": false,
+    "outputEnabled": false,
+    "volume": 0.8,
+    "voiceId": "en_US-lessac-high",
+    "language": "en",
+    "pushToTalk": false
+  },
+  "memory": {
+    "enabled": true,
+    "retentionDays": 30,
+    "maxEntries": 10000,
+    "compressOldEntries": true,
+    "persistConversation": true
+  }
+}
+Sections present: api, models, personality, autonomy, voice, memory

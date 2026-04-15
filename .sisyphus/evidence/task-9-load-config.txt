@@ -1,0 +1,9 @@
+2026-04-15 07:59:01 [[34mdebug[39m]: [34mModel-Config: Loaded config from[39m {"service":"minecraft-ai-bot","path":"/home/seryki/.openclaw/workspace/minecraft-ai-bot/config/bot-config.json"}
+2026-04-15 07:59:01 [[32minfo[39m]: [32mModel-Config: Loaded config for pilot[39m {"service":"minecraft-ai-bot","provider":"openai","model":"nvidia/meta/llama-3.2-1b-instruct","temperature":0.7,"max_tokens":1000,"timeout":15000}
+{
+  "provider": "openai",
+  "model": "nvidia/meta/llama-3.2-1b-instruct",
+  "temperature": 0.7,
+  "max_tokens": 1000,
+  "timeout": 15000
+}

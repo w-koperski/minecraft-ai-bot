@@ -1,0 +1,105 @@
+=== QA Scenario 2: Example Scripts Execution ===
+
+1. Check examples/personality-demo.js exists:
+-rw-rw-r-- 1 seryki seryki 7039 Apr 15 09:42 examples/personality-demo.js
+
+2. Check examples/voice-demo.js exists:
+-rw-rw-r-- 1 seryki seryki 5373 Apr 15 09:47 examples/voice-demo.js
+
+3. Verify personality-demo.js has no syntax errors:
+Syntax OK
+
+4. Verify voice-demo.js has no syntax errors:
+Syntax OK
+
+5. Run personality-demo.js:
+============================================================
+Personality Demo - Minecraft AI Bot Companion
+============================================================
+
+✓ Loaded personality from Soul.md
+Current Personality Traits:
+----------------------------------------
+  warmth       [████████████████░░░░] 80%
+  directness   [████████████░░░░░░░░] 60%
+  humor        [██████████░░░░░░░░░░] 50%
+  curiosity    [██████████████░░░░░░] 70%
+  loyalty      [███████████████████░] 95%
+  bravery      [████████████░░░░░░░░] 60%
+
+Archetype: Devoted Companion
+
+Sample Responses (Default Personality):
+----------------------------------------
+  Found Diamonds:
+    "Hey there! I see you've found some diamonds. That's great! I'm here if you need me."
+
+  Combat Help:
+    "Hey there! I'm here if you need me."
+
+  Building:
+    "Hey there! I'm here if you need me."
+
+Adjusting Personality...
+----------------------------------------
+  Adjusted humor to 0.9
+  Adjusted directness to 0.9
+  Adjusted warmth to 0.5
+
+New Archetype: Friendly Helper
+
+Sample Responses (Adjusted Personality):
+----------------------------------------
+  Found Diamonds:
+    "Hello. Diamonds detected. I'm here if you need me."
+
+  Combat Help:
+    "Hello. I'm here if you need me."
+
+  Building:
+    "Hello. I'm here if you need me."
+
+Trait Combinations:
+----------------------------------------
+  High Warmth + High Loyalty:
+✓ Loaded personality from Soul.md
+  Adjusted warmth to 0.9
+  Adjusted loyalty to 0.9
+    Result: Friendly Helper
+
+  High Directness + Low Humor:
+✓ Loaded personality from Soul.md
+  Adjusted directness to 0.9
+  Adjusted humor to 0.1
+    Result: Devoted Companion
+
+  High Curiosity + High Bravery:
+✓ Loaded personality from Soul.md
+  Adjusted curiosity to 0.9
+  Adjusted bravery to 0.8
+    Result: Devoted Companion
+
+  Low Warmth + High Loyalty:
+✓ Loaded personality from Soul.md
+  Adjusted warmth to 0.2
+  Adjusted loyalty to 0.9
+    Result: Silent Guardian
+
+How to Customize Your Bot:
+----------------------------------------
+  1. Open personality/Soul.md in a text editor
+  2. Find the "Personality Dimensions" section
+  3. Edit the values (0.0 to 1.0)
+  4. Save the file
+  5. Restart the bot
+
+  Example changes:
+    warmth: 0.8 → 0.95 (extra friendly)
+    humor: 0.5 → 0.8 (more playful)
+    bravery: 0.6 → 0.3 (more cautious)
+
+============================================================
+Demo Complete!
+============================================================
+
+=== RESULT: PASS ===

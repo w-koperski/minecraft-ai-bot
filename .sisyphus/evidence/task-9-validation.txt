@@ -1,0 +1,8 @@
+{
+  "isValid": false,
+  "errors": [
+    "pilot: Invalid temperature for pilot: 3 (must be 0-2)",
+    "Missing configuration for layer: strategy",
+    "Missing configuration for layer: commander"
+  ]
+}

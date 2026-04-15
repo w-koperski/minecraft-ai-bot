@@ -1,0 +1,13 @@
+QA Scenario 1: Load personality from Soul.md
+{
+  "warmth": 0.8,
+  "directness": 0.6,
+  "humor": 0.5,
+  "curiosity": 0.7,
+  "loyalty": 0.95,
+  "bravery": 0.6
+}
+
+Verification:
+All 6 dimensions present: true
+All values in 0.0-1.0 range: true

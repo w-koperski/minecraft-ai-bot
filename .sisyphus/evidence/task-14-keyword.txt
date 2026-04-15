@@ -1,0 +1,50 @@
+=== QA SCENARIO 2: Keyword Activation ===
+
+TEST DATE: 2026-04-15
+
+OBJECTIVE:
+Test keyword activation functionality ("Hey bot" trigger).
+
+TEST SETUP:
+- VoiceHandler with requireKeyword=true
+- Keyword: "hey bot"
+- Mock DiscordVoice returning various inputs
+
+TEST CASES:
+
+1. Input WITH keyword: "hey bot status"
+   - Expected: Process command "status"
+   - Result: Status returned "Health: 20.0/20 | Position: 100 64 200 | Game Mode: survival"
+   - Status: PASSED
+
+2. Input WITHOUT keyword: "collect wood"
+   - Expected: Return null, do not process
+   - Result: Null returned, debug log shows "No keyword in: collect wood"
+   - Status: PASSED
+
+3. Keyword extraction tests:
+   a) "hey bot collect stone" -> "collect stone" PASSED
+   b) "Hey Bot BUILD house" -> "BUILD house" PASSED
+   c) "HEY BOT stop" -> "stop" PASSED
+   d) "please hey bot goto 100 64 200" -> "goto 100 64 200" PASSED
+
+RESULTS:
+- Keyword detection works case-insensitively
+- Commands extracted correctly after keyword
+- Non-keyword inputs properly ignored
+- Keyword can appear anywhere in text
+- Works with various command types
+
+KEYWORD EXTRACTION LOGIC:
+- Search for keyword position (case-insensitive)
+- Extract text after keyword
+- Trim whitespace
+- Return extracted command
+
+CONCLUSION:
+Keyword activation working correctly
+Case-insensitive matching
+Flexible positioning (keyword can be anywhere)
+Proper rejection of non-keyword inputs
+
+STATUS: PASSED

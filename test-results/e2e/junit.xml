@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="16" failures="1" errors="0" time="31.121">
+  <testsuite name="Bot Lifecycle" errors="0" failures="1" skipped="15" timestamp="2026-04-14T21:19:53" time="31.038" tests="16">
+    <testcase classname="Bot Lifecycle Connection should connect to Minecraft server" name="Bot Lifecycle Connection should connect to Minecraft server" time="30.002">
+      <failure>TypeError: bot.quit is not a function
+    at Timeout.quit [as _onTimeout] (/home/seryki/.openclaw/workspace/minecraft-ai-bot/tests/helpers/bot-factory.js:28:11)
+    at listOnTimeout (node:internal/timers:585:17)
+    at processTimers (node:internal/timers:521:7)</failure>
+      <failure>Error: thrown: &quot;Exceeded timeout of 30000 ms for a test.
+Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout.&quot;
+    at test (/home/seryki/.openclaw/workspace/minecraft-ai-bot/tests/e2e/bot-lifecycle.test.js:5:5)
+    at _dispatchDescribe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-circus/build/index.js:91:26)
+    at describe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-circus/build/index.js:55:5)
+    at describe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/tests/e2e/bot-lifecycle.test.js:4:3)
+    at _dispatchDescribe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-circus/build/index.js:91:26)
+    at describe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-circus/build/index.js:55:5)
+    at Object.describe (/home/seryki/.openclaw/workspace/minecraft-ai-bot/tests/e2e/bot-lifecycle.test.js:3:1)
+    at Runtime._execModule (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-runtime/build/index.js:1439:24)
+    at Runtime._loadModule (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-runtime/build/index.js:1022:12)
+    at Runtime.requireModule (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-runtime/build/index.js:882:12)
+    at jestAdapter (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:77:13)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at runTestInternal (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/home/seryki/.openclaw/workspace/minecraft-ai-bot/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+    <testcase classname="Bot Lifecycle Connection should load required plugins" name="Bot Lifecycle Connection should load required plugins" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Connection should receive spawn event" name="Bot Lifecycle Connection should receive spawn event" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle World State should read game mode" name="Bot Lifecycle World State should read game mode" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle World State should read health and food" name="Bot Lifecycle World State should read health and food" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle World State should access inventory" name="Bot Lifecycle World State should access inventory" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle World State should detect nearby blocks" name="Bot Lifecycle World State should detect nearby blocks" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle World State should detect nearby entities" name="Bot Lifecycle World State should detect nearby entities" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Movement should have valid position" name="Bot Lifecycle Movement should have valid position" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Movement should be able to move" name="Bot Lifecycle Movement should be able to move" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Movement should be able to jump" name="Bot Lifecycle Movement should be able to jump" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Survival should survive for 30 seconds in survival mode" name="Bot Lifecycle Survival should survive for 30 seconds in survival mode" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Survival should respawn after death" name="Bot Lifecycle Survival should respawn after death" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Disconnection should disconnect gracefully" name="Bot Lifecycle Disconnection should disconnect gracefully" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Disconnection should handle reconnection" name="Bot Lifecycle Disconnection should handle reconnection" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Bot Lifecycle Disconnection should handle multiple concurrent bots" name="Bot Lifecycle Disconnection should handle multiple concurrent bots" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+</testsuites>

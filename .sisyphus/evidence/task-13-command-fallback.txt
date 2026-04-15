@@ -1,0 +1,52 @@
+=== QA Scenario 3: Command Fallback ===
+Date: 2026-04-15
+Component: src/chat/chat-handler.js
+
+Test Results:
+
+Test 1: Command parsing
+Input: "collect wood"
+Result:
+  - action: "collect"
+  - args: ["wood"]
+Status: PASS
+
+Test 2: Multi-argument parsing
+Input: "goto 100 64 -200"
+Result:
+  - action: "goto"
+  - args: ["100", "64", "-200"]
+Status: PASS
+
+Test 3: Intent analysis (activity question)
+Input: "Hey AIBot, what are you doing?"
+Result:
+  - type: "question_activity"
+  - confidence: 0.9
+Status: PASS
+
+Test 4: Intent analysis (command - falls through to chat_general)
+Input: "!bot collect wood"
+Result:
+  - type: "chat_general"
+  - confidence: 0.5
+Note: Commands are handled by regex prefix check before intent analysis
+Status: PASS
+
+Test 5: Intent analysis (gratitude)
+Input: "Thanks for your help!"
+Result:
+  - type: "gratitude"
+  - confidence: 0.85
+Status: PASS
+
+Command System Preserved:
+  - !bot collect <resource> - Collect resources
+  - !bot build <structure> - Build structures
+  - !bot goto <x> <y> <z> - Navigate to location
+  - !bot status - Show bot status
+  - !bot stop - Stop all actions
+  - !bot help - Show available commands
+
+All tests passed successfully.
+Command fallback system verified working.

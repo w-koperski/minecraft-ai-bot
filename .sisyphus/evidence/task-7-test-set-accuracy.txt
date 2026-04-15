@@ -1,0 +1,15 @@
+QA Scenario 3: Test Set Accuracy (100 messages)
+================================================
+
+Total: 101
+Correct: 99
+Accuracy: 98.02%
+
+Failures (2):
+  - "BOTS ARE COOL"
+    Expected: false, Got: true
+  - "WHERE'S THE BOT"
+    Expected: false, Got: true
+
+Target: 95% accuracy
+Result: PASS

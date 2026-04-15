@@ -15,6 +15,8 @@ const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
 const { extractState } = require('../utils/vision-enhanced');
 const ActionAwareness = require('./action-awareness');
+const { getTraits } = require('../../personality/personality-engine');
+const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
 
 // Adaptive loop intervals (milliseconds)
 const INTERVALS = {
@@ -262,13 +264,13 @@ class Pilot {
     // Sort by severity
     const criticalThreats = threats.filter(t => t.severity === 'critical');
     const highThreats = threats.filter(t => t.severity === 'high');
-    
+
     const priorityThreat = criticalThreats[0] || highThreats[0] || threats[0];
 
     logger.info('Pilot: Handling threat', { threat: priorityThreat });
 
-    // Build prompt for LLM
-    const prompt = this.buildThreatPrompt(priorityThreat, state);
+    // Build prompt for LLM (async for personality/relationship injection)
+    const prompt = await this.buildThreatPrompt(priorityThreat, state);
 
     try {
       // Get reaction from LLM
@@ -383,12 +385,12 @@ class Pilot {
   /**
    * Build prompt for threat response
    */
-  buildThreatPrompt(threat, state) {
+  async buildThreatPrompt(threat, state) {
     const position = state.self.position;
     const health = state.self.health;
 
     let threatDescription = '';
-    
+
     switch (threat.type) {
       case 'hostile_mob':
         const mob = threat.entities[0];
@@ -409,7 +411,14 @@ class Pilot {
         break;
     }
 
+    const personalityBlock = await this._buildPersonalityBlock();
+    const relationshipBlock = await this._buildRelationshipBlock();
+
     return `You are a Minecraft bot's fast reaction system. Respond to immediate threats.
+
+${personalityBlock}
+
+${relationshipBlock}
 
 Current State:
 - Position: ${position.x}, ${position.y}, ${position.z}
@@ -426,6 +435,36 @@ OR
 {"type": "jump"}
 
 Choose the safest action to avoid the threat.`;
+  }
+
+  async _buildPersonalityBlock() {
+    try {
+      const traits = getTraits();
+      const traitList = Object.entries(traits)
+        .map(([name, value]) => `${name} (${value.toFixed(2)})`)
+        .join(', ');
+
+      const braveryNote = traits.bravery >= 0.7
+        ? 'You are brave and willing to stand your ground against threats.'
+        : traits.bravery >= 0.4
+        ? 'You are moderately cautious when facing danger.'
+        : 'You prefer to avoid danger when possible.';
+
+      return `Personality: You are ${traitList}. ${braveryNote}`;
+    } catch (err) {
+      logger.warn('Pilot: Could not load personality traits', { error: err.message });
+      return 'Personality: Default cautious reaction mode.';
+    }
+  }
+
+  async _buildRelationshipBlock() {
+    try {
+      const relationship = await getRelationship();
+      return formatForPrompt(relationship);
+    } catch (err) {
+      logger.warn('Pilot: Could not load relationship state', { error: err.message });
+      return 'Relationship: Unknown player relationship.';
+    }
   }
 
   /**

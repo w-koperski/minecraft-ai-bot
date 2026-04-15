@@ -1,0 +1,16 @@
+=== QA Scenario 3: Rollback instructions work ===
+
+Checking rollback section exists:
+547:## Rollback Instructions
+
+Checking rollback steps documented:
+### Step 1: Stop Bot
+### Step 2: Restore Files from Backup
+### Step 3: Restore Database (if needed)
+### Step 4: Remove New Dependencies (optional)
+### Step 5: Start MVP Bot
+
+Checking database rollback mentioned:
+567:### Step 3: Restore Database (if needed)
+
+RESULT: PASS - Rollback instructions accurate

@@ -335,7 +335,9 @@ describe('Commander Layer', () => {
       expect(mockStateManager.write).toHaveBeenCalledWith('commands', {
         goal: 'build house',
         timestamp: expect.any(Number),
-        source: 'commander'
+        source: 'commander',
+        priority: expect.any(Number),
+        activityType: null
       });
     });
 

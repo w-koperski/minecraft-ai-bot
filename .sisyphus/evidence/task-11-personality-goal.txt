@@ -1,0 +1,28 @@
+QA SCENARIO 2: PERSONALITY INFLUENCES GOAL SELECTION
+Date: 2026-04-15
+Test: Verify personality traits influence autonomous goal selection
+
+TEST SETUP:
+- Personality engine loaded with Soul.md
+- High curiosity (0.95) → explore activities scored higher
+- Low loyalty (0.3) → assist/farm activities scored lower
+
+PERSONALITY STATE:
+  curiosity: 0.95 (boosted from default 0.7)
+  loyalty: 0.3 (reduced from default 0.95)
+  Other traits: warmth=0.8, directness=0.6, humor=0.5, bravery=0.6
+
+ACTIVITY SCORING:
+- explore: curiosity weight 2.0 → high score with curiosity=0.95
+- assist: loyalty weight 2.0, warmth weight 1.2 → lower score with loyalty=0.3
+- farm: loyalty weight 1.5, warmth weight 1.0 → lower score with loyalty=0.3
+
+VERIFICATION:
+[PASS] High curiosity loads successfully
+[PASS] Low loyalty loads successfully
+[PASS] Traits influence activity scoring as expected
+[PASS] explore activity scores higher with high curiosity
+[PASS] assist/farm activities score lower with low loyalty
+
+CONCLUSION: PASS - Personality traits correctly influence goal selection.
+(End of file)

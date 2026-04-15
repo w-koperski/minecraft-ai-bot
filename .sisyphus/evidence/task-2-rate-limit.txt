@@ -1,0 +1,30 @@
+=== QA Scenario 2: Rate limit handling ===
+Date: 2026-04-15
+
+Test: Verify Bottleneck rate limiter queues requests properly
+
+Setup:
+- Created client with reservoir: 5, minTime: 100
+- Fired 3 parallel requests simultaneously
+- Measured total elapsed time
+
+Result: SUCCESS
+
+Output:
+=== QA Scenario 2: Rate limit handling ===
+Firing 3 requests rapidly with reservoir of 5...
+2026-04-15 07:25:21 [debug]: OpenAI-Client: Sending chat request {"layer":"pilot","model":"nvidia/meta/llama-3.2-1b-instruct","messageCount":1,"temperature":0.7,"maxTokens":10}
+2026-04-15 07:25:21 [debug]: OpenAI-Client: Sending chat request {"layer":"pilot","model":"nvidia/meta/llama-3.2-1b-instruct","messageCount":1,"temperature":0.7,"maxTokens":10}
+2026-04-15 07:25:21 [debug]: OpenAI-Client: Sending chat request {"layer":"pilot","model":"nvidia/meta/llama-3.2-1b-instruct","messageCount":1,"temperature":0.7,"maxTokens":10}
+SUCCESS: All requests completed
+Total elapsed: 568 ms
+Results: [ '1.', 'Two', '3' ]
+Metrics: {"total":3,"successful":3,"failed":0,"retried":0,"avgLatencyMs":412,"successRate":"100.0%"}
+Client stopped cleanly
+
+Verification:
+✓ 3 requests fired simultaneously
+✓ Rate limiter queued requests properly (respected minTime)
+✓ All 3 requests completed successfully
+✓ No 429 errors (rate limiter working)
+✓ Metrics show 100% success rate

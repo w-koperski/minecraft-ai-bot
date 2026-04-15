@@ -1,0 +1,25 @@
+=== QA Scenario 2: Breaking changes documented ===
+
+Checking omniroute → openai-client documented:
+51:### API Client Migration: omniroute.js to openai-client.js
+59:const OmnirouteClient = require('./utils/omniroute');
+71:| Feature | omniroute.js | openai-client.js |
+120:**Before:** Models defined in `omniroute.js` constants
+482:   const OmnirouteClient = require('./utils/omniroute');
+518:│       ├── omniroute.js      # OLD (keep for reference)
+691:Compare with old `omniroute.js` settings:
+
+Checking import changes explained:
+#### Import Changes
+
+**Before (MVP):**
+
+Checking API differences noted:
+#### API Differences
+
+| Feature | omniroute.js | openai-client.js |
+|---------|--------------|------------------|
+| Constructor | `new OmnirouteClient(config)` | `new OpenAIClient(config)` |
+| Chat method | `client.chat(messages, options)` | `client.chat(messages, layer, options)` |
+
+RESULT: PASS - Breaking changes clearly documented

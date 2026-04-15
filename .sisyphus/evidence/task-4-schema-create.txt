@@ -1,0 +1,15 @@
+QA Scenario 1: Schema creates tables successfully
+=================================================
+Date: 2026-04-15
+Tool: Node.js sqlite3
+
+Steps:
+1. rm -f test-memory.db
+2. sqlite3 test-memory.db < src/memory/schema.sql
+
+Results:
+- Schema executed successfully
+- All tables created: conversations, events, goals, learnings, personality_state, relationships
+- All indexes created: idx_events_timestamp, idx_goals_status, idx_conversations_player_id, idx_conversations_timestamp, idx_relationships_trust
+
+Verification: PASS - Schema creates all 6 tables and 5 indexes without errors

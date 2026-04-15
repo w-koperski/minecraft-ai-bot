@@ -1,0 +1,9 @@
+=== QA Scenario 1: Save and Retrieve Conversation ===
+2026-04-15 07:53:22 [[34mdebug[39m]: [34mConversationStore connected[39m {"service":"minecraft-ai-bot","dbPath":"./state/memory.db"}
+Retrieved 2 conversations
+  [0] Bot: "Hello there!" | Player: "Hi bot, how are you?"
+       Context: {"location":"spawn","activity":"greeting"}
+  [1] Bot: "I am doing great!" | Player: "What are you building?"
+       Context: {"location":"forest","activity":"building"}
+PASS: Conversations saved and retrieved successfully
+PASS: Context preserved correctly

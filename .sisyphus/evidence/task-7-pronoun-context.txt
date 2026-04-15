@@ -1,0 +1,30 @@
+QA Scenario 2: Context-Aware Pronoun Detection
+==============================================
+
+PASS: "What are you doing?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "How are you?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "Where are you?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "Can you help me?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "What is your name?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "You there?" ctx={"botSpokeLast":true}
+  => true (0.95) Second-person pronoun with bot context (spoke last)
+PASS: "Nice work!" ctx={"botSpokeLast":true}
+  => false (0.00) Not clearly addressed to bot
+PASS: "What are you doing?" ctx={"botSpokeLast":false,"messagesSinceBotSpoke":1}
+  => true (0.90) Second-person pronoun with bot context (spoke 1 messages ago)
+PASS: "What are you doing?" ctx={"botSpokeLast":false,"messagesSinceBotSpoke":5}
+  => true (0.75) Second-person pronoun with bot context (spoke 5 messages ago)
+PASS: "What are you doing?" ctx={"botSpokeLast":false,"messagesSinceBotSpoke":6}
+  => false (0.00) Not clearly addressed to bot
+PASS: "What are you doing?" ctx=null
+  => false (0.00) Not clearly addressed to bot
+PASS: "Hello world" ctx={"botSpokeLast":true}
+  => false (0.00) Not clearly addressed to bot
+
+Results: 12/12 passed
+Accuracy: 100.0%

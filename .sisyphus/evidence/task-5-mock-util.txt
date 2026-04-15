@@ -1,0 +1,44 @@
+QA Scenario 2: Mock utilities work
+===================================
+
+Test 1: mock-api.js createMockChatResponse()
+Command: node -e "const mock = require('./tests/helpers/mock-api'); console.log(JSON.stringify(mock.createMockChatResponse('test')))"
+
+Output:
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "test"
+      },
+      "finish_reason": "stop",
+      "index": 0
+    }
+  ],
+  "model": "gpt-4",
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 5,
+    "total_tokens": 15
+  },
+  "created": 1776238614125
+}
+
+Result: SUCCESS - Mock returns expected structure with choices, message, model, usage fields
+
+Test 2: mock-personality.js createMockPersonalityEngine()
+Command: node -e "const mock = require('./tests/helpers/mock-personality'); const engine = mock.createMockPersonalityEngine(); console.log('Traits:', JSON.stringify(engine.traits, null, 2))"
+
+Output:
+Traits: {
+  "bravery": { "name": "bravery", "value": 0.7, "min": 0, "max": 1, "description": "Fearlessness in dangerous situations" },
+  "curiosity": { "name": "curiosity", "value": 0.6, "min": 0, "max": 1, "description": "Desire to explore and discover" },
+  "patience": { "name": "patience", "value": 0.5, "min": 0, "max": 1, "description": "Willingness to wait for long-term goals" },
+  "aggression": { "name": "aggression", "value": 0.3, "min": 0, "max": 1, "description": "Tendency to engage in combat" },
+  "sociability": { "name": "sociability", "value": 0.8, "min": 0, "max": 1, "description": "Tendency to interact with players" }
+}
+
+Result: SUCCESS - Mock personality engine creates proper trait structure
+
+Overall Result: SUCCESS - Both mock utilities return valid test data

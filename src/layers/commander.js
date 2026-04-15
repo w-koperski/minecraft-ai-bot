@@ -1,16 +1,28 @@
 /**
- * Commander Layer - High-Level Monitoring and Goal Setting
- * 
- * Monitors bot state every 10 seconds, issues high-level goals to Strategy layer,
- * detects stuck situations, and corrects Strategy when needed.
- * 
- * Uses Claude Sonnet 4.5 via Omniroute for complex reasoning.
- * Accesses all memory tiers: Working Memory (state.json), STM (recent actions), Long-Term (persistent).
- */
+* Commander Layer - High-Level Monitoring and Goal Setting
+*
+* Monitors bot state every 10 seconds, issues high-level goals to Strategy layer,
+* detects stuck situations, and corrects Strategy when needed.
+*
+* Uses Claude Sonnet 4.5 via Omniroute for complex reasoning.
+* Accesses all memory tiers: Working Memory (state.json), STM (recent actions), Long-Term (persistent).
+*
+* AUTONOMOUS GOALS: When idle (no goal + safe environment), generates goals based on:
+* - Personality traits (curiosity → explore, loyalty → protect player)
+* - Conversation memory (player mentioned wanting diamonds → search for diamonds)
+* - Autonomy level from config (full/advanced/basic/conservative)
+*
+* Goal Priority: safety > player requests > autonomous goals
+*/
 
 const logger = require('../utils/logger');
 const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
+const PersonalityEngine = require('../../personality/personality-engine');
+const ConversationStore = require('../memory/conversation-store');
+const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
+const fs = require('fs');
+const path = require('path');
 
 // Loop interval (milliseconds)
 const COMMANDER_INTERVAL = parseInt(process.env.COMMANDER_INTERVAL) || 10000;
@@ -25,18 +37,52 @@ const STUCK_THRESHOLD = {
 // Memory access configuration
 const MEMORY_CONFIG = {
   workingMemoryKeys: ['state', 'plan', 'commands', 'action_error'],
-  stmHistoryLimit: 20, // Last 20 actions
-  ltmEnabled: false    // Long-term memory not implemented yet
+  stmHistoryLimit: 20,
+  ltmEnabled: false
+};
+
+// Autonomy levels and their allowed activities
+const AUTONOMY_LEVELS = {
+  full: { weight: 1.0, activities: ['explore', 'gather', 'craft', 'build', 'farm', 'assist'] },
+  advanced: { weight: 0.7, activities: ['explore', 'gather', 'craft', 'assist'] },
+  basic: { weight: 0.4, activities: ['gather', 'assist'] },
+  conservative: { weight: 0.2, activities: ['assist'] }
+};
+
+// Activity types and their personality trait mappings
+const ACTIVITY_TRAITS = {
+  explore: { primary: 'curiosity', secondary: 'bravery', description: 'explore nearby areas for new resources' },
+  gather: { primary: 'curiosity', secondary: 'warmth', description: 'collect useful resources' },
+  craft: { primary: 'directness', secondary: 'warmth', description: 'craft useful items' },
+  build: { primary: 'directness', secondary: 'warmth', description: 'build or improve structures' },
+  farm: { primary: 'loyalty', secondary: 'warmth', description: 'tend to farms and food production' },
+  assist: { primary: 'loyalty', secondary: 'warmth', description: 'assist nearby players' }
+};
+
+// Goal priority levels (higher = more important)
+const GOAL_PRIORITY = {
+  safety: 100,
+  player_request: 80,
+  autonomous: 50,
+  idle: 10
+};
+
+// Idle detection thresholds
+const IDLE_CONFIG = {
+  minIdleTime: 15000,
+  safeEnvironmentCheck: true
 };
 
 class Commander {
   constructor() {
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
-    
+    this.personalityEngine = PersonalityEngine.getInstance();
+    this.conversationStore = new ConversationStore();
+
     this.running = false;
     this.loopTimer = null;
-    
+
     // Monitoring state
     this.lastState = null;
     this.lastGoal = null;
@@ -44,10 +90,38 @@ class Commander {
     this.lastProgressTime = Date.now();
     this.failureCount = 0;
     this.consecutiveErrors = 0;
-    
+
     // Decision history
     this.decisionHistory = [];
     this.maxHistorySize = 50;
+
+    // Autonomy state
+    this.autonomyLevel = 'full';
+    this.lastAutonomousGoalTime = 0;
+    this.minTimeBetweenAutonomousGoals = 60000;
+
+    // Load config
+    this._loadConfig();
+  }
+
+  /**
+   * Load autonomy configuration from bot-config.json
+   */
+  _loadConfig() {
+    try {
+      const configPath = path.join(process.cwd(), 'config', 'bot-config.json');
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (config.autonomy && config.autonomy.enabled !== undefined) {
+          this.autonomyEnabled = config.autonomy.enabled;
+          this.autonomyLevel = config.autonomy.level || 'full';
+        }
+      }
+    } catch (error) {
+      logger.warn('Commander: Failed to load config, using defaults', { error: error.message });
+    }
+    this.autonomyEnabled = true;
+    this.autonomyLevel = 'full';
   }
 
   /**
@@ -109,55 +183,75 @@ class Commander {
     }, COMMANDER_INTERVAL);
   }
 
-  /**
-   * Main monitoring loop
-   */
-  async loop() {
-    const loopStart = Date.now();
+/**
+* Main monitoring loop
+*/
+async loop() {
+  const loopStart = Date.now();
 
-    try {
-      // 1. Gather all memory tiers
-      const memory = await this.gatherMemory();
-      
-      // 2. Analyze current situation
-      const analysis = this.analyzeSituation(memory);
-      
-      // 3. Detect stuck conditions
-      const stuckDetection = this.detectStuck(memory, analysis);
-      
-      // 4. Make decision (call Claude Sonnet 4.5)
-      const decision = await this.makeDecision(memory, analysis, stuckDetection);
-      
-      // 5. Execute decision (write commands)
-      await this.executeDecision(decision);
-      
-      // 6. Update monitoring state
-      this.updateMonitoringState(memory, decision);
-      
-      // 7. Record decision in history
-      this.recordDecision(decision, analysis, stuckDetection);
+  try {
+    // 1. Gather all memory tiers
+    const memory = await this.gatherMemory();
 
-      const loopDuration = Date.now() - loopStart;
-      logger.debug('Commander: Loop completed', {
-        duration: loopDuration,
-        decision: decision.action,
-        stuck: stuckDetection.isStuck
-      });
+    // 2. Analyze current situation
+    const analysis = this.analyzeSituation(memory);
 
-    } catch (error) {
-      logger.error('Commander: Loop execution failed', {
-        error: error.message,
-        stack: error.stack
-      });
-      this.consecutiveErrors++;
-      
-      // If too many errors, issue emergency stop
-      if (this.consecutiveErrors >= 5) {
-        logger.error('Commander: Too many consecutive errors, issuing emergency stop');
-        await this.issueEmergencyStop();
+    // 3. Detect stuck conditions
+    const stuckDetection = this.detectStuck(memory, analysis);
+
+    // 4. Check for idle state and generate autonomous goal if needed
+    const idleState = this.detectIdleState(memory, analysis);
+    if (idleState.isIdle && this.autonomyEnabled) {
+      const autonomousGoal = await this.generateAutonomousGoal(memory, analysis);
+      if (autonomousGoal) {
+        await this.executeDecision({
+          action: 'new_goal',
+          goal: autonomousGoal.goal,
+          reasoning: autonomousGoal.reasoning,
+          source: 'autonomous',
+          timestamp: Date.now()
+        });
+        this.lastAutonomousGoalTime = Date.now();
+        this.updateMonitoringState(memory, { action: 'new_goal', goal: autonomousGoal.goal });
+        this.recordDecision({ action: 'new_goal', goal: autonomousGoal.goal }, analysis, stuckDetection);
+        return;
       }
     }
+
+    // 5. Make decision (call Claude Sonnet 4.5)
+    const decision = await this.makeDecision(memory, analysis, stuckDetection);
+
+    // 6. Execute decision (write commands)
+    await this.executeDecision(decision);
+
+    // 7. Update monitoring state
+    this.updateMonitoringState(memory, decision);
+
+    // 8. Record decision in history
+    this.recordDecision(decision, analysis, stuckDetection);
+
+    const loopDuration = Date.now() - loopStart;
+    logger.debug('Commander: Loop completed', {
+      duration: loopDuration,
+      decision: decision.action,
+      stuck: stuckDetection.isStuck,
+      idle: idleState.isIdle
+    });
+
+  } catch (error) {
+    logger.error('Commander: Loop execution failed', {
+      error: error.message,
+      stack: error.stack
+    });
+    this.consecutiveErrors++;
+
+    // If too many errors, issue emergency stop
+    if (this.consecutiveErrors >= 5) {
+      logger.error('Commander: Too many consecutive errors, issuing emergency stop');
+      await this.issueEmergencyStop();
+    }
   }
+}
 
   /**
    * Gather all memory tiers
@@ -340,8 +434,185 @@ class Commander {
       detection.severity = Math.min(detection.severity + 2, 5);
     }
 
-    return detection;
+return detection;
+}
+
+/**
+* Detect if bot is idle (no goal + safe environment)
+*/
+detectIdleState(memory, analysis) {
+const state = memory.working.state;
+const commands = memory.working.commands;
+const plan = memory.working.plan;
+const now = Date.now();
+
+const idleState = {
+  isIdle: false,
+  reasons: [],
+  canAct: false
+};
+
+const hasGoal = commands && commands.goal;
+const hasPlan = plan && plan.length > 0;
+const isSafe = analysis.threatLevel === 'safe';
+const botAlive = analysis.botAlive;
+const timeSinceLastAutonomous = now - this.lastAutonomousGoalTime;
+const minIntervalMet = timeSinceLastAutonomous >= this.minTimeBetweenAutonomousGoals;
+
+if (!hasGoal && !hasPlan && isSafe && botAlive && minIntervalMet) {
+  idleState.isIdle = true;
+  idleState.reasons.push('no_goal');
+  idleState.reasons.push('no_plan');
+  idleState.reasons.push('safe_environment');
+}
+
+if (this.autonomyEnabled && this._getAutonomyConfig().weight > 0) {
+  idleState.canAct = true;
+}
+
+logger.debug('Commander: Idle state check', {
+  isIdle: idleState.isIdle,
+  hasGoal,
+  hasPlan,
+  isSafe,
+  minIntervalMet,
+  autonomyEnabled: this.autonomyEnabled
+});
+
+return idleState;
+}
+
+/**
+* Generate autonomous goal based on personality and memory
+*/
+async generateAutonomousGoal(memory, analysis) {
+const traits = this.personalityEngine.getTraits();
+const state = memory.working.state;
+
+const activityScores = this._scoreActivities(traits, memory, analysis);
+
+if (activityScores.length === 0) {
+  logger.debug('Commander: No valid activities for autonomous goal');
+  return null;
+}
+
+const selectedActivity = activityScores[0];
+const goal = this._buildGoalFromActivity(selectedActivity, state);
+
+logger.info('Commander: Generated autonomous goal', {
+  activity: selectedActivity.type,
+  score: selectedActivity.score.toFixed(2),
+  goal: goal.goal,
+  personalityTraits: {
+    curiosity: traits.curiosity?.toFixed(2),
+    loyalty: traits.loyalty?.toFixed(2),
+    warmth: traits.warmth?.toFixed(2)
   }
+});
+
+return goal;
+}
+
+/**
+* Score activities based on personality traits and context
+*/
+_scoreActivities(traits, memory, analysis) {
+const autonomyConfig = this._getAutonomyConfig();
+const allowedActivities = autonomyConfig.activities;
+const autonomyWeight = autonomyConfig.weight;
+
+const scoredActivities = [];
+
+for (const activityType of allowedActivities) {
+  const activityConfig = ACTIVITY_TRAITS[activityType];
+  if (!activityConfig) continue;
+
+  let score = 0;
+  const primaryTrait = traits[activityConfig.primary] || 0.5;
+  const secondaryTrait = traits[activityConfig.secondary] || 0.5;
+
+  score = (primaryTrait * 2.0) + (secondaryTrait * 1.0);
+
+  const memoryBoost = this._getMemoryBoost(activityType, memory);
+  score += memoryBoost;
+
+  score *= autonomyWeight;
+
+  scoredActivities.push({
+    type: activityType,
+    score,
+    description: activityConfig.description,
+    primaryTrait: activityConfig.primary,
+    memoryBoost
+  });
+}
+
+scoredActivities.sort((a, b) => b.score - a.score);
+
+return scoredActivities;
+}
+
+/**
+* Get boost from conversation memory for specific activity
+*/
+_getMemoryBoost(activityType, memory) {
+let boost = 0;
+
+try {
+  const commands = memory.working.commands;
+  if (commands && commands.recentPlayerMentions) {
+    const mentions = commands.recentPlayerMentions;
+    
+    if (activityType === 'gather' && mentions.some(m => m.includes('diamond') || m.includes('iron'))) {
+      boost += 0.5;
+    }
+    if (activityType === 'explore' && mentions.some(m => m.includes('find') || m.includes('search'))) {
+      boost += 0.5;
+    }
+    if (activityType === 'assist' && mentions.some(m => m.includes('help') || m.includes('need'))) {
+      boost += 0.5;
+    }
+  }
+} catch (error) {
+  logger.debug('Commander: Memory boost calculation failed', { error: error.message });
+}
+
+return boost;
+}
+
+/**
+* Build concrete goal from selected activity
+*/
+_buildGoalFromActivity(activity, state) {
+const position = state?.position || { x: 0, y: 64, z: 0 };
+
+const goalTemplates = {
+  explore: () => `explore the area within 100 blocks of current position, look for interesting features`,
+  gather: () => `gather useful resources like wood, stone, or coal within 50 blocks`,
+  craft: () => `craft useful items from available materials`,
+  build: () => `improve the area around current position with a small shelter or storage`,
+  farm: () => `tend to any nearby farms or start a small wheat farm`,
+  assist: () => `check if any nearby players need assistance`
+};
+
+const goalGenerator = goalTemplates[activity.type] || (() => activity.description);
+const goalText = goalGenerator();
+
+return {
+  goal: goalText,
+  reasoning: `Autonomous goal generated based on ${activity.primaryTrait} trait (${activity.score.toFixed(2)} score)${activity.memoryBoost > 0 ? ' and recent player mentions' : ''}`,
+  activityType: activity.type,
+  priority: GOAL_PRIORITY.autonomous,
+  source: 'autonomous'
+};
+}
+
+/**
+* Get autonomy configuration for current level
+*/
+_getAutonomyConfig() {
+return AUTONOMY_LEVELS[this.autonomyLevel] || AUTONOMY_LEVELS.full;
+}
 
   /**
    * Make decision using Claude Sonnet 4.5
@@ -354,8 +625,8 @@ class Commander {
     // Build context for LLM
     const context = this.buildDecisionContext(memory, analysis, stuckDetection);
 
-    // Build prompt
-    const prompt = this.buildPrompt(context);
+    // Build prompt (async for personality/relationship)
+    const prompt = await this.buildPrompt(context);
 
     try {
       const response = await this.omniroute.commander(prompt, {
@@ -421,7 +692,10 @@ class Commander {
   /**
    * Build prompt for Claude
    */
-  buildPrompt(context) {
+  async buildPrompt(context) {
+    const personalityBlock = await this._buildPersonalityBlock();
+    const relationshipBlock = await this._buildRelationshipBlock();
+
     const messages = [
       {
         role: 'system',
@@ -435,6 +709,10 @@ You have access to:
 - Working Memory: Current bot state (health, position, inventory, nearby entities/blocks)
 - Short-Term Memory: Recent actions and their outcomes
 - Current goal and plan from Strategy layer
+
+${personalityBlock}
+
+${relationshipBlock}
 
 Respond with a JSON object containing:
 {
@@ -477,6 +755,37 @@ What should the bot do next?`
     ];
 
     return messages;
+  }
+
+  async _buildPersonalityBlock() {
+    try {
+      const traits = this.personalityEngine.getTraits();
+      const traitList = Object.entries(traits)
+        .map(([name, value]) => `${name} (${value.toFixed(2)})`)
+        .join(', ');
+
+      const loyaltyNote = traits.loyalty >= 0.9
+        ? 'You are deeply loyal to the player and prioritize their safety and goals above all else.'
+        : 'You balance your own objectives with the player\'s needs.';
+      const warmthNote = traits.warmth >= 0.7
+        ? 'Communicate with warmth and encouragement.'
+        : 'Keep communication direct and task-focused.';
+
+      return `Personality: You are ${traitList}. ${loyaltyNote} ${warmthNote}`;
+    } catch (err) {
+      logger.warn('Commander: Could not load personality traits', { error: err.message });
+      return 'Personality: Default monitoring mode.';
+    }
+  }
+
+  async _buildRelationshipBlock() {
+    try {
+      const relationship = await getRelationship();
+      return formatForPrompt(relationship);
+    } catch (err) {
+      logger.warn('Commander: Could not load relationship state', { error: err.message });
+      return 'Relationship: Unknown player relationship.';
+    }
   }
 
   /**
@@ -570,23 +879,26 @@ What should the bot do next?`
           });
           break;
 
-        case 'new_goal':
-          // Write new goal to commands.json
-          await this.stateManager.write('commands', {
-            goal: decision.goal,
-            timestamp: Date.now(),
-            source: 'commander'
-          });
-          
-          logger.info('Commander: Issued new goal', {
-            goal: decision.goal,
-            reasoning: decision.reasoning
-          });
-          
-          this.lastGoal = decision.goal;
-          this.lastGoalTime = Date.now();
-          this.failureCount = 0;
-          break;
+case 'new_goal':
+const goalSource = decision.source || 'commander';
+await this.stateManager.write('commands', {
+  goal: decision.goal,
+  timestamp: Date.now(),
+  source: goalSource,
+  priority: decision.priority || GOAL_PRIORITY.autonomous,
+  activityType: decision.activityType || null
+});
+
+logger.info('Commander: Issued new goal', {
+  goal: decision.goal,
+  reasoning: decision.reasoning,
+  source: goalSource
+});
+
+this.lastGoal = decision.goal;
+this.lastGoalTime = Date.now();
+this.failureCount = 0;
+break;
 
         case 'correct_strategy':
           // Write correction to commands.json and clear plan

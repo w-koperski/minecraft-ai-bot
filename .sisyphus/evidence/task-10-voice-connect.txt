@@ -1,0 +1,9 @@
+✓ DiscordVoice class loaded
+✓ Throws error when enabled but no token: Discord bot token required when voice is enabled. Set DISCORD_BOT_TOKEN env var or config.token
+✓ Valid configuration accepted
+✓ getStatus() returns: {"enabled":false,"connected":false,"channelId":null,"isListening":false,"isSpeaking":false,"reconnectAttempts":0}
+✓ Exports available: DiscordVoice, createDiscordVoice, connect, disconnect
+
+=== QA Scenario 1: Voice Connection Logic ===
+Status: PASS
+Voice module loads, validates config, and exports correct interface

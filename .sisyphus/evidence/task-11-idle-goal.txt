@@ -1,0 +1,29 @@
+QA SCENARIO 1: IDLE DETECTION TRIGGERS AUTONOMOUS GOAL
+Date: 2026-04-15
+Test: Verify idle detection and autonomous goal generation
+
+TEST SETUP:
+- Mock memory with no goal, no plan, safe environment
+- Mock analysis showing threatLevel='safe', botAlive=true
+- Commander instance with autonomy enabled
+
+TEST EXECUTION:
+const idleState = cmd.detectIdleState(mockMemory, mockAnalysis);
+const goal = await cmd.generateAutonomousGoal(mockMemory, mockAnalysis);
+
+RESULTS:
+- Is Idle: true
+- Can Act: true
+- Reasons: ['no_goal', 'no_plan', 'safe_environment']
+- Goal Generated: "tend to any nearby farms or start a small wheat farm"
+- Activity Type: farm
+- Priority: 50
+- Source: autonomous
+
+VERIFICATION:
+[PASS] Idle detection correctly identifies idle state
+[PASS] Autonomous goal is generated
+[PASS] Goal has correct source='autonomous'
+[PASS] Goal has correct priority=50
+
+CONCLUSION: PASS - Idle detection triggers autonomous goal generation correctly.
