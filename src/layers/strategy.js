@@ -21,6 +21,7 @@ const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
 const { getTraits } = require('../../personality/personality-engine');
 const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
+const KnowledgeGraph = require('../memory/knowledge-graph');
 
 // Loop interval (milliseconds)
 const STRATEGY_INTERVAL = parseInt(process.env.STRATEGY_INTERVAL) || 3000;
@@ -36,29 +37,30 @@ const MEMORY_CONFIG = {
 // Stuck detection
 const STUCK_CONFIG = {
   noProgressDuration: 30000, // 30 seconds
-  minMovementDistance: 2,    // blocks
+  minMovementDistance: 2, // blocks
   maxReplanAttempts: 3
 };
+
+// Knowledge graph query budget (Task 13)
+const GRAPH_QUERY_TIMEOUT_MS = 500;
 
 class Strategy {
   constructor() {
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
-    
+    this.knowledgeGraph = new KnowledgeGraph();
+
     this.running = false;
     this.loopTimer = null;
-    
-    // Planning state
+
     this.currentGoal = null;
     this.currentPlan = null;
     this.planCreatedAt = null;
     this.replanAttempts = 0;
-    
-    // History tracking (Short-Term Memory)
+
     this.actionHistory = [];
     this.planHistory = [];
-    
-    // Progress tracking
+
     this.lastPosition = null;
     this.lastProgressTime = Date.now();
     this.lastStateHash = null;
@@ -280,12 +282,14 @@ class Strategy {
         this.planHistory.shift();
       }
 
-      logger.info('Strategy: Plan created', { 
-        plan: plan.map(a => a.action || a.type),
-        steps: plan.length
-      });
+    logger.info('Strategy: Plan created', {
+      plan: plan.map(a => a.action || a.type),
+      steps: plan.length
+    });
 
-    } catch (error) {
+    await this._storePlanOutcome(plan, state, true);
+
+  } catch (error) {
       logger.error('Strategy: Plan creation failed', { 
         error: error.message,
         stack: error.stack
@@ -302,6 +306,7 @@ class Strategy {
 
     const personalityBlock = await this._buildPersonalityBlock();
     const relationshipBlock = await this._buildRelationshipBlock();
+    const graphData = await this._queryKnowledgeGraph(state);
 
     let context = `${personalityBlock}\n\n${relationshipBlock}\n\nGoal: ${goal}\n\n`;
 
@@ -313,7 +318,7 @@ class Strategy {
 
     if (state.inventory.length > 0) {
       const topItems = state.inventory.slice(0, 5);
-      context += `  Top items: ${topItems.map(i => `${i.name} x${i.count}`).join(', ')}\n`;
+      context += ` Top items: ${topItems.map(i => `${i.name} x${i.count}`).join(', ')}\n`;
     }
 
     if (state.nearbyBlocks && state.nearbyBlocks.length > 0) {
@@ -329,6 +334,21 @@ class Strategy {
       if (passives.length > 0) {
         context += `- Passive mobs: ${passives.length}\n`;
       }
+    }
+
+    if (graphData?.spatial && graphData.spatial.length > 0) {
+      context += `\nKnown Locations (from memory):\n`;
+      graphData.spatial.forEach(loc => {
+        const coords = loc.coordinates;
+        context += `- ${loc.name}: (${coords.x.toFixed(0)}, ${coords.y.toFixed(0)}, ${coords.z.toFixed(0)}) - ${loc.biome}\n`;
+      });
+    }
+
+    if (graphData?.semantic && graphData.semantic.length > 0) {
+      context += `\nRelevant Knowledge (from memory):\n`;
+      graphData.semantic.forEach(fact => {
+        context += `- ${fact.subject} ${fact.predicate} ${fact.object} (confidence: ${(fact.confidence * 100).toFixed(0)}%)\n`;
+      });
     }
 
     if (recentHistory.length > 0) {
@@ -479,7 +499,10 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       error: actionError.error
     });
 
-    // Record in action history
+    if (this.currentPlan) {
+      await this._storePlanOutcome(this.currentPlan, state, false);
+    }
+
     this.actionHistory.push({
       action: actionError.action,
       success: false,
@@ -487,13 +510,10 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       timestamp: actionError.timestamp
     });
 
-    // Trim action history to STM duration
     this.trimActionHistory();
 
-    // Clear the error
     await this.stateManager.delete('action_error');
 
-    // Replan
     this.currentPlan = null;
     this.planCreatedAt = null;
     await this.createPlan(state, goal);
@@ -655,6 +675,144 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       actionHistorySize: this.actionHistory.length,
       timeSinceProgress: Date.now() - this.lastProgressTime
     };
+  }
+
+  /**
+   * Query knowledge graph with timeout budget
+   * @param {object} state - Current game state
+   * @returns {Promise<object>} - Graph query results
+   */
+  async _queryKnowledgeGraph(state) {
+    const startTime = Date.now();
+
+    try {
+      const results = await Promise.race([
+        this._fetchGraphData(state),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Graph query timeout')), GRAPH_QUERY_TIMEOUT_MS)
+        )
+      ]);
+
+      const elapsed = Date.now() - startTime;
+      logger.debug('Strategy: Graph query completed', { elapsedMs: elapsed });
+
+      return results;
+    } catch (error) {
+      logger.warn('Strategy: Graph query failed or timed out', {
+        error: error.message,
+        elapsedMs: Date.now() - startTime
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Fetch data from knowledge graph (internal)
+   */
+  async _fetchGraphData(state) {
+    const [spatialMemories, semanticMemories] = await Promise.all([
+      this._querySpatialMemories(state),
+      this._querySemanticMemories(this.currentGoal)
+    ]);
+
+    return {
+      spatial: spatialMemories,
+      semantic: semanticMemories
+    };
+  }
+
+  /**
+   * Query spatial memories near current position
+   */
+  async _querySpatialMemories(state) {
+    if (!state?.position) return [];
+
+    const nearby = {
+      x: state.position.x,
+      y: state.position.y,
+      z: state.position.z,
+      radius: 100
+    };
+
+    const memories = this.knowledgeGraph.getSpatialMemories({ near: nearby });
+
+    if (memories.length > 0) {
+      logger.debug('Strategy: Found spatial memories', { count: memories.length });
+    }
+
+    return memories.slice(0, 5);
+  }
+
+  /**
+   * Query semantic memories relevant to goal
+   */
+  async _querySemanticMemories(goal) {
+    if (!goal) return [];
+
+    const keywords = this._extractKeywords(goal);
+    const memories = [];
+
+    for (const keyword of keywords.slice(0, 3)) {
+      const found = this.knowledgeGraph.getSemanticMemories({ subject: keyword });
+      memories.push(...found);
+    }
+
+    if (memories.length > 0) {
+      logger.debug('Strategy: Found semantic memories', { count: memories.length });
+    }
+
+    return memories.slice(0, 5);
+  }
+
+  /**
+   * Extract keywords from goal string
+   */
+  _extractKeywords(text) {
+    if (!text) return [];
+
+    const stopWords = ['the', 'a', 'an', 'to', 'of', 'and', 'in', 'for', 'is', 'it'];
+    const words = text.toLowerCase().split(/\s+/);
+
+    return words
+      .filter(w => w.length > 2 && !stopWords.includes(w))
+      .slice(0, 5);
+  }
+
+  /**
+   * Store plan outcome in knowledge graph (Episodic memory)
+   */
+  async _storePlanOutcome(plan, state, success) {
+    if (!plan || plan.length === 0 || !state) return;
+
+    const experience = success
+      ? `Successfully completed plan: ${plan.map(a => a.action).join(' -> ')}`
+      : `Plan failed or interrupted: ${plan.map(a => a.action).join(' -> ')}`;
+
+    const participants = [{
+      type: 'bot',
+      identifier: 'self',
+      role: 'executor'
+    }];
+
+    const location = state.position ? {
+      x: state.position.x,
+      y: state.position.y,
+      z: state.position.z,
+      dimension: state.dimension || 'overworld',
+      biome: 'unknown'
+    } : null;
+
+    const importance = success ? 5 : 7;
+
+    this.knowledgeGraph.addEpisodicMemory(
+      experience,
+      participants,
+      location,
+      Date.now(),
+      importance
+    );
+
+    logger.debug('Strategy: Stored plan outcome in knowledge graph', { success });
   }
 }
 
