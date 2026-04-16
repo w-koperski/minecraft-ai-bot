@@ -1,0 +1,65 @@
+=== TASK 5: SKILL REGISTRY IMPLEMENTATION ===
+Date: 2026-04-16
+
+## Files Created
+
+### 1. src/skills/skill-registry.js
+- SkillRegistry class with Map-based storage
+- Methods: register(), get(), list(), execute()
+- Auto-registers 5 primitive skills on initialization
+- O(1) lookup performance
+
+### 2. src/skills/primitives/move.js
+- Parameters: direction (string), distance (number)
+- Uses: bot.setControlState(), bot.clearControlStates()
+- Returns: { moved, requestedDistance, actualDistance, direction }
+
+### 3. src/skills/primitives/dig.js
+- Parameters: blockType (string), maxDistance (number)
+- Uses: bot.findBlock(), bot.dig()
+- Returns: { dug, blockType, position, distance }
+
+### 4. src/skills/primitives/place.js
+- Parameters: blockType (string), position (object)
+- Uses: bot.equip(), bot.placeBlock()
+- Returns: { placed, blockType, position }
+
+### 5. src/skills/primitives/craft.js
+- Parameters: itemName (string), count (number)
+- Uses: bot.craft()
+- Returns: { crafted, itemName, requestedCount, actualCount }
+
+### 6. src/skills/primitives/collect.js
+- Parameters: itemType (string), maxDistance (number)
+- Uses: bot.pathfinder.goto(), bot.collectBlock.collect()
+- Returns: { collected, itemType, count, distance }
+
+### 7. tests/unit/skill-registry.test.js
+- 23 test cases covering all functionality
+- Tests: initialization, get, list, register, execute
+- Tests: all 5 primitive skills structure and expectedOutcome
+
+## Registered Skills
+- move: [ 'direction', 'distance' ]
+- dig: [ 'blockType', 'maxDistance' ]
+- place: [ 'blockType', 'position' ]
+- craft: [ 'itemName', 'count' ]
+- collect: [ 'itemType', 'maxDistance' ]
+
+Total skills: 5
+
+## Test Results
+PASS tests/unit/skill-registry.test.js
+- 23 tests passed
+- All skill registration verified
+- All execute() error handling verified
+- All expectedOutcome() methods verified
+
+## Design Notes
+- Simple JavaScript class pattern (no complex DSL)
+- Each skill execute() is async and returns { success, outcome, error }
+- Parameters schema uses simple object: { param1: 'type', param2: 'type' }
+- Skills use bot and vision from constructor injection via context
+- Skills are stateless (each execution is independent)
+- Map-based storage for O(1) lookup
+- Auto-registration in constructor
