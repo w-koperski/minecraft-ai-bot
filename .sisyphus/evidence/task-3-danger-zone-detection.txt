@@ -1,0 +1,11 @@
+Danger Zone Detection Test Results
+2026-04-16 20:29:02 [[32minfo[39m]: [32m[DangerPredictor] Initialized[39m {"service":"minecraft-ai-bot","enabled":true,"radius":20,"halfLifeDays":7,"threshold":0.3}
+2026-04-16 20:29:02 [[34mdebug[39m]: [34m[DangerPredictor] Stored in knowledge graph[39m {"service":"minecraft-ai-bot","memoryName":"danger_creeper_death_1776371342092"}
+2026-04-16 20:29:02 [[32minfo[39m]: [32m[DangerPredictor] Marked danger zone[39m {"service":"minecraft-ai-bot","position":"(100, 64, 200)","reason":"creeper_death","radius":20}
+Test 1: Position within radius (105, 64, 205)
+isDangerous: true
+Expected: true
+
+Test 2: Position outside radius (200, 64, 300)
+isDangerous: false
+Expected: false

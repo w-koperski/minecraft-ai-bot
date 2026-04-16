@@ -1,0 +1,84 @@
+=== Graphology Query Latency Validation Report ===
+Generated: 2026-04-15T22:38:34.617Z
+
+--- Graph Configuration ---
+Nodes: 500
+Edges: 2000
+
+--- Query Latency Results (P99 target: <10ms) ---
+
+findNeighbors:
+  P50: 0.001ms
+  P90: 0.001ms
+  P99: 0.006ms
+  Avg: 0.001ms
+  Min: 0.000ms
+  Max: 0.187ms
+  Status: PASS ✓
+
+shortestPath:
+  P50: 0.284ms
+  P90: 0.394ms
+  P99: 0.776ms
+  Avg: 0.301ms
+  Min: 0.186ms
+  Max: 2.093ms
+  Status: PASS ✓
+
+filterByType:
+  P50: 0.007ms
+  P90: 0.037ms
+  P99: 0.155ms
+  Avg: 0.018ms
+  Min: 0.007ms
+  Max: 0.515ms
+  Status: PASS ✓
+
+getNodeProperties:
+  P50: 0.001ms
+  P90: 0.002ms
+  P99: 0.009ms
+  Avg: 0.004ms
+  Min: 0.001ms
+  Max: 2.534ms
+  Status: PASS ✓
+
+traverseEdges:
+  P50: 0.002ms
+  P90: 0.003ms
+  P99: 0.017ms
+  Avg: 0.003ms
+  Min: 0.001ms
+  Max: 0.380ms
+  Status: PASS ✓
+
+findByAttribute:
+  P50: 0.022ms
+  P90: 0.027ms
+  P99: 0.212ms
+  Avg: 0.029ms
+  Min: 0.012ms
+  Max: 0.675ms
+  Status: PASS ✓
+
+inNeighbors:
+  P50: 0.001ms
+  P90: 0.001ms
+  P99: 0.001ms
+  Avg: 0.001ms
+  Min: 0.000ms
+  Max: 0.093ms
+  Status: PASS ✓
+
+--- Concurrent Read Test (50 simultaneous queries) ---
+findNeighbors: Total=0.388ms, Avg=0.008ms/query
+shortestPath: Total=17.269ms, Avg=0.345ms/query
+filterByType: Total=1.286ms, Avg=0.026ms/query
+getNodeProperties: Total=0.233ms, Avg=0.005ms/query
+traverseEdges: Total=0.153ms, Avg=0.003ms/query
+findByAttribute: Total=1.894ms, Avg=0.038ms/query
+inNeighbors: Total=0.038ms, Avg=0.001ms/query
+
+--- Validation Summary ---
+All P99 < 10ms: PASS ✓
+Target: P99 < 10ms
