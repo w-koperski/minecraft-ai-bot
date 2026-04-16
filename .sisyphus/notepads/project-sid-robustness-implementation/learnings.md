@@ -279,3 +279,40 @@ bot.on('end', () => {
 ### Tests
 - All unit tests pass: `PASS tests/unit/knowledge-graph.test.js`
 - Evidence file: `.sisyphus/evidence/task-auto-consolidation-timer.txt`
+
+## [2026-04-16T20:29:00] Task 3: Danger Prediction System Complete
+
+### Implementation Summary
+Created src/safety/danger-predictor.js with full danger tracking:
+- DangerPredictor class with markDangerous(), isDangerous(), getDangerLevel(), getDangerZones()
+- 20-block danger radius (configurable via DANGER_ZONE_RADIUS_BLOCKS)
+- 7-day half-life exponential decay (configurable via DANGER_DECAY_HALF_LIFE_DAYS)
+- Integrates with knowledge graph using addSpatialMemory
+- Feature flag: ENABLE_DANGER_PREDICTION (default: true)
+- Danger threshold: 0.3 (positions with level > 0.3 are dangerous)
+
+### Key Implementation Details
+- 3D Euclidean distance calculation: sqrt(dx² + dy² + dz²)
+- Decay formula: 1.0 * Math.pow(0.5, daysSince / halfLifeDays)
+- In-memory tracking with knowledge graph persistence
+- Returns copy of danger zones to prevent external modification
+
+### Test Coverage
+- All 15 tests pass
+- Tests cover: marking, querying, decay, distance calculation, edge cases
+- Evidence files created: task-3-danger-zone-detection.txt, task-3-danger-decay.txt
+
+### Decay Verification
+- Fresh danger zone: level = 1.0
+- After 7 days: level = 0.5 (half-life)
+- After 8 days: level = 0.453 (verified)
+- After 14 days: level = 0.25
+
+### Next Steps
+- Task 4: Failure Pattern Detection (Wave 1 remaining)
+- Task 3 blocks Task 11 (Goal scorer uses danger predictions)
+
+### Success Pattern
+- Direct implementation by Atlas worked when subagent timed out
+- Creating new files is simpler than modifying complex existing classes
+- Test-first approach ensured correctness
