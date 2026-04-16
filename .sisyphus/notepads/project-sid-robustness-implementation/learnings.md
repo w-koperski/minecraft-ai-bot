@@ -133,3 +133,109 @@ All edge cases from Metis analysis have test scenarios defined:
 ### Next Steps
 - Task 0.4: Rollback Criteria Definition
 - Begin Wave 1: T1 (Enhanced Action Awareness) - unblocks T7, T9
+
+## [2026-04-16T18:15:00] Task 0.4 Rollback Criteria Complete
+
+### Key Findings:
+
+#### 10 Features Need Rollback Criteria
+All Wave 1-3 features have defined rollback procedures:
+
+**Wave 1 (4 features):**
+1. T1: Enhanced Action Awareness - confidence scoring, multi-step verification
+2. T2: Automated Memory Consolidation - timer-based every 10 min
+3. T3: Danger Prediction System - spatial tracking, 7-day decay
+4. T4: Failure Pattern Detection - pattern recognition
+
+**Wave 2 (2 features):**
+5. T5-T7: Skill System - registry, primitives, composites, executor with retry
+6. T8: Item Progression Tracker - milestone detection
+
+**Wave 3 (4 features):**
+7. T9: Reflection Module - 30 min cycle, performance analysis
+8. T10-T12: Goal Generation System - graph, scorer, generator, Commander
+
+#### Automatic Rollback Thresholds Defined
+For each feature, specified:
+- Warning threshold (monitor closely)
+- Critical threshold (auto-disable)
+- Metric to check
+- Action to take
+
+**Common Patterns:**
+- Success rate <80% triggers most features
+- Latency thresholds vary (10ms for quick ops, 5s for complex)
+- Memory limits: 10MB-100MB depending on storage role
+
+#### Manual Rollback Procedures (4 methods each)
+1. **Environment variable** - immediate, no restart
+2. **Chat command** - remote, no restart
+3. **Edit .env and restart** - full clean
+4. **State file** - programmatic
+
+#### Feature Flag Format (.env.example)
+```env
+ENABLE_CONFIDENCE_SCORING=true
+ENABLE_AUTO_CONSOLIDATION=true
+ENABLE_DANGER_PREDICTION=true
+ENABLE_FAILURE_DETECTION=true
+ENABLE_SKILL_SYSTEM=true
+ENABLE_ITEM_TRACKER=true
+ENABLE_REFLECTION=true
+ENABLE_AUTONOMOUS_GOALS=true
+```
+
+#### Rollback Configuration Added
+```env
+KG_MAX_NODES=10000
+KG_CONSOLIDATION_INTERVAL_MS=600000
+ACTION_SUCCESS_RATE_MIN=0.80
+CONSOLIDATION_TIME_MAX_MS=100
+REFLECTION_TIME_MAX_MS=5000
+RPM_WARNING_THRESHOLD=400
+RPM_CRITICAL_THRESHOLD=500
+DANGER_DECAY_HALF_LIFE_DAYS=7
+DANGER_ZONE_RADIUS_BLOCKS=20
+```
+
+#### Rollback Impact Catalogued
+For each feature when disabled:
+- What still works (fallback behavior)
+- What stops working
+- User-visible effects
+
+**Example (T1: Confidence Scoring):**
+- Falls back to binary success/fail (no confidence scores)
+- Skill Executor uses default 3-attempt retry (no confidence filtering)
+- Multi-step verification disabled
+- User-visible: More retries, less adaptive behavior
+
+#### Files Created/Modified
+- **Created**: .sisyphus/rollback-criteria.md (comprehensive 400+ line doc)
+- **Modified**: .env.example (added feature flags and rollback config)
+
+#### Rollback Priority Matrix
+| Feature | Priority | Blocks | Auto-Disable Risk |
+|---------|----------|--------|-------------------|
+| T5-T7: Skill System | CRITICAL | T9 | Medium |
+| T1: Confidence Scoring | HIGH | T7 | Low |
+| T2: Auto Consolidation | HIGH | None | Low |
+| T3: Danger Prediction | HIGH | T11 | Low |
+| T4: Failure Detection | HIGH | T9 | Low |
+| T9: Reflection | MEDIUM | None | Medium |
+| T10-T12: Goal Gen | MEDIUM | None | Medium |
+| T8: Item Tracker | LOW | None | Very Low |
+
+#### Generic Rollback Infrastructure
+- Feature disable notification via stateManager.write('feature_disabled', {...})
+- Health check endpoint with feature status
+- Recovery procedure (verify → re-enable → monitor)
+
+### Acceptance Criteria Status
+- [x] Rollback criteria document: .sisyphus/rollback-criteria.md
+- [x] Feature flags defined in .env.example
+- [x] Monitoring metrics specified
+
+### Next Steps
+- Begin Wave 1: T1 (Enhanced Action Awareness)
+- Unblocks: T7 (Skill Executor), T9 (Reflection Module)

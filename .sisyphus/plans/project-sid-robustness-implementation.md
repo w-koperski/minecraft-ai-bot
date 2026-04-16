@@ -319,7 +319,7 @@ Max Concurrent: 4 tasks per wave
   - Message: `chore(testing): define edge case test matrix`
   - Files: `.sisyphus/edge-case-matrix.md`
 
-- [ ] 0.4. Define Rollback Criteria
+- [x] 0.4. Define Rollback Criteria
 
   **What to do**:
   - Define rollback criteria for each new feature
