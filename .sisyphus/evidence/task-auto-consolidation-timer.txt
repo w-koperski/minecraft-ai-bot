@@ -1,0 +1,68 @@
+# Evidence: Automated Memory Consolidation Timer
+
+## Task: Add automated memory consolidation timer to src/index.js
+
+## Date: 2026-04-16
+
+## Changes Made
+
+### 1. Added KnowledgeGraph import to src/index.js
+```javascript
+const KnowledgeGraph = require('./memory/knowledge-graph');
+```
+
+### 2. Added state variables
+```javascript
+let knowledgeGraph = null;
+let consolidationTimer = null;
+```
+
+### 3. Added timer initialization in initializeLayers()
+```javascript
+knowledgeGraph = new KnowledgeGraph();
+
+const consolidationInterval = parseInt(process.env.KG_CONSOLIDATION_INTERVAL_MS) || 600000;
+if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
+  logger.info('Starting memory consolidation timer', { intervalMs: consolidationInterval });
+
+  consolidationTimer = setInterval(async () => {
+    setImmediate(async () => {
+      try {
+        const stats = await knowledgeGraph.consolidate();
+        if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+          logger.info('Memory consolidated', stats);
+        }
+      } catch (error) {
+        logger.error('Memory consolidation failed', { error: error.message });
+      }
+    });
+  }, consolidationInterval);
+}
+```
+
+### 4. Added cleanup on bot disconnect
+```javascript
+bot.on('end', (reason) => {
+  logger.info('Bot disconnected', { reason: reason || 'Unknown' });
+  if (consolidationTimer) {
+    clearInterval(consolidationTimer);
+    consolidationTimer = null;
+  }
+});
+```
+
+## Feature Flags Used
+- `ENABLE_AUTO_CONSOLIDATION=true` - enables the timer (from .env.example line 43)
+- `KG_CONSOLIDATION_INTERVAL_MS=600000` - 10 minute interval (from .env.example line 61)
+
+## Implementation Details
+- Timer uses setImmediate() for non-blocking execution
+- Consolidation stats logged only when there are changes (stmToEpisodic > 0 || episodicToLtm > 0 || dropped > 0)
+- Error handling prevents timer crashes
+- Timer cleanup on bot disconnect prevents memory leaks
+
+## Tests
+All unit tests pass:
+```
+PASS tests/unit/knowledge-graph.test.js (13.33 s)
+```

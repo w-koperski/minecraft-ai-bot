@@ -239,3 +239,43 @@ For each feature when disabled:
 ### Next Steps
 - Begin Wave 1: T1 (Enhanced Action Awareness)
 - Unblocks: T7 (Skill Executor), T9 (Reflection Module)
+
+## [2026-04-16T18:15:00] Task: Auto Consolidation Timer Complete
+
+### Implementation Summary
+Added automated memory consolidation timer to src/index.js:
+- Imports KnowledgeGraph class
+- Initializes knowledgeGraph instance in initializeLayers()
+- Creates setInterval timer every 10 minutes (600000ms)
+- Respects ENABLE_AUTO_CONSOLIDATION feature flag
+- Uses setImmediate() for non-blocking execution
+- Logs consolidation stats only when changes occur
+- Cleanup on bot disconnect (clearInterval)
+
+### Key Code Patterns
+```javascript
+// Feature flag check before starting timer
+if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
+  consolidationTimer = setInterval(async () => {
+    setImmediate(async () => {
+      const stats = await knowledgeGraph.consolidate();
+      // Log only if changes
+      if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+        logger.info('Memory consolidated', stats);
+      }
+    });
+  }, consolidationInterval);
+}
+
+// Cleanup on disconnect
+bot.on('end', () => {
+  if (consolidationTimer) {
+    clearInterval(consolidationTimer);
+    consolidationTimer = null;
+  }
+});
+```
+
+### Tests
+- All unit tests pass: `PASS tests/unit/knowledge-graph.test.js`
+- Evidence file: `.sisyphus/evidence/task-auto-consolidation-timer.txt`

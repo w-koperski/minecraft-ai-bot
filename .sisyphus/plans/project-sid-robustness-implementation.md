@@ -440,7 +440,7 @@ Max Concurrent: 4 tasks per wave
   - Files: `src/layers/action-awareness.js`, `tests/unit/action-awareness.test.js`
   - Pre-commit: `npm run test:unit -- action-awareness`
 
-- [ ] 2. Automated Memory Consolidation
+- [x] 2. Automated Memory Consolidation
 
   **What to do**:
   - Add background timer to call knowledgeGraph.consolidate() every 10 minutes

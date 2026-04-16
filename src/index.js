@@ -29,6 +29,7 @@ const StateManager = require('./utils/state-manager');
 const Pilot = require('./layers/pilot');
 const Strategy = require('./layers/strategy');
 const Commander = require('./layers/commander');
+const KnowledgeGraph = require('./memory/knowledge-graph');
 
 // Track shutdown state
 let isShuttingDown = false;
@@ -36,6 +37,8 @@ let bot = null;
 let pilot = null;
 let strategy = null;
 let commander = null;
+let knowledgeGraph = null;
+let consolidationTimer = null;
 
 /**
  * Create and configure bot instance
@@ -148,12 +151,16 @@ function setupBotEvents(bot) {
         }
     });
 
-    /**
-     * Event: End connection
-     */
-    bot.on('end', (reason) => {
-        logger.info('Bot disconnected', { reason: reason || 'Unknown' });
-    });
+/**
+ * Event: End connection
+ */
+bot.on('end', (reason) => {
+  logger.info('Bot disconnected', { reason: reason || 'Unknown' });
+  if (consolidationTimer) {
+    clearInterval(consolidationTimer);
+    consolidationTimer = null;
+  }
+});
 }
 
 /**
@@ -202,10 +209,30 @@ async function initializeLayers() {
     logger.info('Starting Commander layer...');
     await commander.start();
 
-    logger.info('All AI layers running', {
-        pilot: pilot.getStatus(),
-        layers: ['pilot', 'strategy', 'commander']
-    });
+logger.info('All AI layers running', {
+  pilot: pilot.getStatus(),
+  layers: ['pilot', 'strategy', 'commander']
+});
+
+  knowledgeGraph = new KnowledgeGraph();
+
+  const consolidationInterval = parseInt(process.env.KG_CONSOLIDATION_INTERVAL_MS) || 600000;
+  if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
+    logger.info('Starting memory consolidation timer', { intervalMs: consolidationInterval });
+
+    consolidationTimer = setInterval(async () => {
+      setImmediate(async () => {
+        try {
+          const stats = await knowledgeGraph.consolidate();
+          if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+            logger.info('Memory consolidated', stats);
+          }
+        } catch (error) {
+          logger.error('Memory consolidation failed', { error: error.message });
+        }
+      });
+    }, consolidationInterval);
+  }
 }
 
 /**
