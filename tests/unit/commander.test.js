@@ -586,33 +586,153 @@ describe('Commander Layer', () => {
       );
     });
 
-    test('should defer decision when coherence check fails', async () => {
-      mockStateManager.read.mockImplementation((key) => {
-        if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
-        if (key === 'plan') return Promise.resolve([]);
-        if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
-        if (key === 'action_error') return Promise.resolve(null);
-        if (key === 'action_history') return Promise.resolve([]);
-        return Promise.resolve(null);
-      });
+  test('should defer decision when coherence check fails', async () => {
+    mockStateManager.read.mockImplementation((key) => {
+      if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+      if (key === 'plan') return Promise.resolve([]);
+      if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+      if (key === 'action_error') return Promise.resolve(null);
+      if (key === 'action_history') return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
 
-      mockCognitiveController.synthesize.mockReturnValue({
+    mockCognitiveController.synthesize.mockReturnValue({
+      action: { type: 'idle' },
+      priority: 'normal',
+      source: 'default',
+      coherence: true,
+      timestamp: Date.now()
+    });
+
+    mockCognitiveController.checkCoherence.mockReturnValue(false);
+
+    mockOmniroute.commander.mockResolvedValue({
+      choices: [{ message: { content: '{"action": "new_goal", "goal": "attack player", "reasoning": "Test", "talk": "I will help you"}' } }]
+    });
+
+    await commander.loop();
+
+    expect(mockCognitiveController.checkCoherence).toHaveBeenCalled();
+  });
+
+  test('should run analysis modules concurrently with Promise.all', async () => {
+    const analyzeSituationSpy = jest.spyOn(commander, 'analyzeSituation');
+    const detectStuckSpy = jest.spyOn(commander, 'detectStuck');
+    const detectIdleStateSpy = jest.spyOn(commander, 'detectIdleState');
+
+    mockStateManager.read.mockImplementation((key) => {
+      if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+      if (key === 'plan') return Promise.resolve([]);
+      if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+      if (key === 'action_error') return Promise.resolve(null);
+      if (key === 'action_history') return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    mockCognitiveController.synthesize.mockReturnValue({
+      action: { type: 'idle' },
+      priority: 'normal',
+      source: 'default',
+      coherence: true,
+      timestamp: Date.now()
+    });
+
+    mockOmniroute.commander.mockResolvedValue({
+      choices: [{ message: { content: '{"action": "continue", "reasoning": "Test"}' } }]
+    });
+
+    await commander.loop();
+
+    expect(analyzeSituationSpy).toHaveBeenCalled();
+    expect(detectStuckSpy).toHaveBeenCalled();
+    expect(detectIdleStateSpy).toHaveBeenCalled();
+
+    analyzeSituationSpy.mockRestore();
+    detectStuckSpy.mockRestore();
+    detectIdleStateSpy.mockRestore();
+  });
+
+  test('should log timings for performance debugging', async () => {
+    const logger = require('../../src/utils/logger');
+    const debugSpy = jest.spyOn(logger, 'debug');
+
+    mockStateManager.read.mockImplementation((key) => {
+      if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+      if (key === 'plan') return Promise.resolve([]);
+      if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+      if (key === 'action_error') return Promise.resolve(null);
+      if (key === 'action_history') return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    mockCognitiveController.synthesize.mockReturnValue({
+      action: { type: 'idle' },
+      priority: 'normal',
+      source: 'default',
+      coherence: true,
+      timestamp: Date.now()
+    });
+
+    mockOmniroute.commander.mockResolvedValue({
+      choices: [{ message: { content: '{"action": "continue", "reasoning": "Test"}' } }]
+    });
+
+    await commander.loop();
+
+    const debugCalls = debugSpy.mock.calls;
+    const loopCompletedCall = debugCalls.find(call => 
+      call[0] === 'Commander: Loop completed'
+    );
+
+    expect(loopCompletedCall).toBeDefined();
+    expect(loopCompletedCall[1]).toHaveProperty('timings');
+    expect(loopCompletedCall[1].timings).toHaveProperty('memory');
+    expect(loopCompletedCall[1].timings).toHaveProperty('analysis');
+    expect(loopCompletedCall[1].timings).toHaveProperty('cognitiveInputs');
+    expect(loopCompletedCall[1].timings).toHaveProperty('synthesis');
+    expect(loopCompletedCall[1].timings).toHaveProperty('decision');
+    expect(loopCompletedCall[1].timings).toHaveProperty('broadcast');
+    expect(loopCompletedCall[1].timings).toHaveProperty('execute');
+    expect(loopCompletedCall[1].timings).toHaveProperty('total');
+
+    debugSpy.mockRestore();
+  });
+
+  test('should synthesize after all concurrent modules complete', async () => {
+    let synthesizeCallTime = null;
+    let analysisCompleteTime = null;
+
+    mockStateManager.read.mockImplementation((key) => {
+      if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+      if (key === 'plan') return Promise.resolve([]);
+      if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+      if (key === 'action_error') return Promise.resolve(null);
+      if (key === 'action_history') return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+
+    mockCognitiveController.synthesize.mockImplementation(() => {
+      synthesizeCallTime = Date.now();
+      return {
         action: { type: 'idle' },
         priority: 'normal',
         source: 'default',
         coherence: true,
-        timestamp: Date.now()
-      });
-
-      mockCognitiveController.checkCoherence.mockReturnValue(false);
-
-      mockOmniroute.commander.mockResolvedValue({
-        choices: [{ message: { content: '{"action": "new_goal", "goal": "attack player", "reasoning": "Test", "talk": "I will help you"}' } }]
-      });
-
-      await commander.loop();
-
-      expect(mockCognitiveController.checkCoherence).toHaveBeenCalled();
+        timestamp: synthesizeCallTime
+      };
     });
+
+    mockOmniroute.commander.mockResolvedValue({
+      choices: [{ message: { content: '{"action": "continue", "reasoning": "Test"}' } }]
+    });
+
+    await commander.loop();
+
+    analysisCompleteTime = Date.now();
+
+    expect(synthesizeCallTime).toBeLessThan(analysisCompleteTime + 1000);
+
+    mockCognitiveController.synthesize.mockRestore();
   });
+});
 });

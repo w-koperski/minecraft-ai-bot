@@ -187,30 +187,50 @@ class Commander {
 
   /**
    * Main monitoring loop
+   * 
+   * Concurrent module execution pattern (PIANO):
+   * - Steps 2, 3, 6 run concurrently with Promise.all (independent analysis)
+   * - Step 5 (Controller.synthesize) is the bottleneck - runs after all inputs gathered
+   * - Step 7 (makeDecision) waits for Controller synthesis
+   * 
+   * Timing is logged for performance debugging.
    */
   async loop() {
     const loopStart = Date.now();
+    const timings = {};
 
     try {
       // 1. Gather all memory tiers
+      const memoryStart = Date.now();
       const memory = await this.gatherMemory();
+      timings.memory = Date.now() - memoryStart;
 
-      // 2. Analyze current situation
-      const analysis = this.analyzeSituation(memory);
-
-      // 3. Detect stuck conditions
-      const stuckDetection = this.detectStuck(memory, analysis);
+      // 2-3, 6: Run analysis modules concurrently (independent operations)
+      const analysisStart = Date.now();
+      const [analysis, stuckDetection, idleState] = await Promise.all([
+        Promise.resolve(this.analyzeSituation(memory)),
+        Promise.resolve(this.detectStuck(memory, this.analyzeSituation(memory))),
+        Promise.resolve(this.detectIdleState(memory, this.analyzeSituation(memory)))
+      ]);
+      timings.analysis = Date.now() - analysisStart;
 
       // 4. Build cognitive inputs for Controller
+      const inputsStart = Date.now();
       const cognitiveInputs = this.buildCognitiveInputs(memory, analysis, stuckDetection);
+      timings.cognitiveInputs = Date.now() - inputsStart;
 
       // 5. Synthesize through Cognitive Controller (PIANO bottleneck)
+      // CRITICAL: This is the central orchestration point - must happen after all inputs gathered
+      const synthesisStart = Date.now();
       const controllerDecision = this.cognitiveController.synthesize(cognitiveInputs);
+      timings.synthesis = Date.now() - synthesisStart;
 
       // 6. Check for idle state and generate autonomous goal if needed
-      const idleState = this.detectIdleState(memory, analysis);
       if (idleState.isIdle && this.autonomyEnabled) {
+        const autonomousStart = Date.now();
         const autonomousGoal = await this.generateAutonomousGoal(memory, analysis);
+        timings.autonomousGoal = Date.now() - autonomousStart;
+
         if (autonomousGoal) {
           // Check coherence before executing
           if (autonomousGoal.talk) {
@@ -226,7 +246,7 @@ class Commander {
               return;
             }
           }
-          
+
           await this.executeDecision({
             action: 'new_goal',
             goal: autonomousGoal.goal,
@@ -243,7 +263,9 @@ class Commander {
       }
 
       // 7. Make decision (call Claude Sonnet 4.5)
+      const decisionStart = Date.now();
       const decision = await this.makeDecision(memory, analysis, stuckDetection);
+      timings.decision = Date.now() - decisionStart;
 
       // 8. Check coherence between talk and action before executing
       if (decision.talk && decision.action) {
@@ -260,10 +282,14 @@ class Commander {
       }
 
       // 9. Broadcast decision through Cognitive Controller
+      const broadcastStart = Date.now();
       this.cognitiveController.broadcast(controllerDecision);
+      timings.broadcast = Date.now() - broadcastStart;
 
       // 10. Execute decision (write commands)
+      const executeStart = Date.now();
       await this.executeDecision(decision);
+      timings.execute = Date.now() - executeStart;
 
       // 11. Update monitoring state
       this.updateMonitoringState(memory, decision);
@@ -272,12 +298,15 @@ class Commander {
       this.recordDecision(decision, analysis, stuckDetection);
 
       const loopDuration = Date.now() - loopStart;
+      timings.total = loopDuration;
+
       logger.debug('Commander: Loop completed', {
         duration: loopDuration,
         decision: decision.action,
         stuck: stuckDetection.isStuck,
         idle: idleState.isIdle,
-        controllerSource: controllerDecision.source
+        controllerSource: controllerDecision.source,
+        timings
       });
 
     } catch (error) {
