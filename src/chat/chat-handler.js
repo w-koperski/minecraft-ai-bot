@@ -18,6 +18,8 @@ const logger = require('../utils/logger');
 const { isAddressed } = require('./nlp-handler');
 const ConversationStore = require('../memory/conversation-store');
 const { getInstance: getPersonalityEngine } = require('../../personality/personality-engine');
+const emotionDetector = require('../emotion/emotion-detector');
+const SocialAwareness = require('../social/social-awareness');
 
 // Context window size for pronoun resolution (scope limit)
 const CONTEXT_WINDOW_SIZE = 5;
@@ -115,59 +117,60 @@ async function executeCommand(username, action, args, bot, stateManager) {
  * @param {string} message - Original message
  * @param {object} bot - Mineflayer bot instance
  * @param {object} personalityEngine - Personality engine instance
- * @param {object} conversationStore - Conversation store instance
+* @param {object} conversationStore - Conversation store instance
  * @param {object} context - Conversation context
+ * @param {object|null} detectedEmotion - Detected emotion {emotion, confidence} or null
  * @returns {Promise<string>} - Generated response
  */
-async function generateNaturalResponse(username, message, bot, personalityEngine, conversationStore, context) {
+async function generateNaturalResponse(username, message, bot, personalityEngine, conversationStore, context, detectedEmotion = null) {
   const traits = personalityEngine.getTraits();
   const relationship = await conversationStore.getRelationship(username);
-  
+
   // Get current activity for context
   const pos = bot.entity.position;
   const activity = getActivityDescription(bot);
-  
+
   // Analyze message intent (simple pattern matching)
   const intent = analyzeIntent(message);
-  
+
   // Generate response based on intent and personality
   let response;
-  
+
   switch (intent.type) {
     case 'question_activity':
-      response = generateActivityResponse(username, activity, traits, relationship);
+      response = generateActivityResponse(username, activity, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'question_status':
-      response = await generateStatusResponse(username, bot, traits, relationship);
+      response = await generateStatusResponse(username, bot, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'greeting':
-      response = generateGreetingResponse(username, traits, relationship);
+      response = generateGreetingResponse(username, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'question_identity':
-      response = generateIdentityResponse(username, traits);
+      response = generateIdentityResponse(username, traits, detectedEmotion);
       break;
-      
+
     case 'gratitude':
-      response = generateGratitudeResponse(username, traits, relationship);
+      response = generateGratitudeResponse(username, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'farewell':
-      response = generateFarewellResponse(username, traits, relationship);
+      response = generateFarewellResponse(username, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'request_help':
-      response = generateHelpOfferResponse(username, message, traits, relationship);
+      response = generateHelpOfferResponse(username, message, traits, relationship, detectedEmotion);
       break;
-      
+
     case 'chat_general':
     default:
-      response = generateChatResponse(username, message, traits, relationship, context);
+      response = generateChatResponse(username, message, traits, relationship, context, detectedEmotion);
       break;
   }
-  
+
   return response;
 }
 
@@ -242,10 +245,13 @@ function getActivityDescription(bot) {
 /**
  * Generate response about current activity
  */
-function generateActivityResponse(username, activity, traits, relationship) {
+function generateActivityResponse(username, activity, traits, relationship, detectedEmotion = null) {
   const familiarity = relationship?.familiarity || 0;
   const warmth = traits.warmth || 0.5;
-  
+
+  // Adjust tone based on detected emotion
+  const emotionTone = getEmotionTone(detectedEmotion);
+
   const responses = warmth > 0.6 ? [
     `Hey ${username}! I'm currently ${activity}. What about you?`,
     `${activity} at the moment! Need any help with anything?`,
@@ -255,20 +261,43 @@ function generateActivityResponse(username, activity, traits, relationship) {
     `${activity}.`,
     `I'm ${activity}.`
   ];
-  
-  // More casual with higher familiarity
+
   const idx = Math.floor(Math.random() * responses.length);
-  return responses[idx];
+  const baseResponse = responses[idx];
+  return emotionTone ? `${emotionTone} ${baseResponse}` : baseResponse;
+}
+
+function getEmotionTone(detectedEmotion) {
+  if (!detectedEmotion) return null;
+
+  const { emotion } = detectedEmotion;
+
+  switch (emotion) {
+    case 'joy':
+    case 'happy':
+      return null;
+    case 'sadness':
+      return 'I sense you might be feeling down.';
+    case 'anger':
+    case 'frustration':
+      return 'I can tell something is bothering you.';
+    case 'fear':
+      return 'Are you okay?';
+    default:
+      return null;
+  }
 }
 
 /**
  * Generate status response
  */
-async function generateStatusResponse(username, bot, traits, relationship) {
+async function generateStatusResponse(username, bot, traits, relationship, detectedEmotion = null) {
   const health = bot.health || 20;
   const pos = bot.entity.position;
   const warmth = traits.warmth || 0.5;
-  
+
+  const emotionTone = getEmotionTone(detectedEmotion);
+
   let healthStatus;
   if (health >= 18) {
     healthStatus = warmth > 0.6 ? 'I\'m doing great!' : 'Health is full.';
@@ -277,108 +306,128 @@ async function generateStatusResponse(username, bot, traits, relationship) {
   } else {
     healthStatus = warmth > 0.6 ? 'I\'m pretty hurt, be careful!' : 'Health is low.';
   }
-  
-  return `${healthStatus} (${health.toFixed(1)}/20) at position (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`;
+
+  const baseResponse = `${healthStatus} (${health.toFixed(1)}/20) at position (${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)})`;
+  return emotionTone ? `${emotionTone} ${baseResponse}` : baseResponse;
 }
 
 /**
  * Generate greeting response
  */
-function generateGreetingResponse(username, traits, relationship) {
+function generateGreetingResponse(username, traits, relationship, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
   const familiarity = relationship?.familiarity || 0;
-  
+  const emotionTone = getEmotionTone(detectedEmotion);
+
+  let response;
   if (warmth > 0.7 && familiarity > 0.3) {
-    return `Hey ${username}! Good to see you again!`;
+    response = `Hey ${username}! Good to see you again!`;
   } else if (warmth > 0.6) {
-    return `Hi ${username}! How can I help you today?`;
+    response = `Hi ${username}! How can I help you today?`;
   } else {
-    return `Hello ${username}.`;
+    response = `Hello ${username}.`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
 /**
  * Generate identity response
  */
-function generateIdentityResponse(username, traits) {
+function generateIdentityResponse(username, traits, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
   const directness = traits.directness || 0.5;
-  
+  const emotionTone = getEmotionTone(detectedEmotion);
+
+  let response;
   if (directness > 0.6) {
-    return warmth > 0.5 
+    response = warmth > 0.5
       ? `I'm your Minecraft companion bot! I'm here to help with tasks and explore with you.`
       : `I'm a companion bot.`;
   } else {
-    return `I'm an AI companion, here to help you in Minecraft!`;
+    response = `I'm an AI companion, here to help you in Minecraft!`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
 /**
  * Generate gratitude response
  */
-function generateGratitudeResponse(username, traits, relationship) {
+function generateGratitudeResponse(username, traits, relationship, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
-  
+  const emotionTone = getEmotionTone(detectedEmotion);
+
+  let response;
   if (warmth > 0.7) {
-    return `You're welcome, ${username}! Happy to help anytime!`;
+    response = `You're welcome, ${username}! Happy to help anytime!`;
   } else if (warmth > 0.5) {
-    return `You're welcome!`;
+    response = `You're welcome!`;
   } else {
-    return `No problem.`;
+    response = `No problem.`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
 /**
  * Generate farewell response
  */
-function generateFarewellResponse(username, traits, relationship) {
+function generateFarewellResponse(username, traits, relationship, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
   const loyalty = traits.loyalty || 0.5;
-  
+  const emotionTone = getEmotionTone(detectedEmotion);
+
+  let response;
   if (warmth > 0.6 && loyalty > 0.7) {
-    return `Goodbye ${username}! Stay safe out there!`;
+    response = `Goodbye ${username}! Stay safe out there!`;
   } else if (warmth > 0.5) {
-    return `See you later, ${username}!`;
+    response = `See you later, ${username}!`;
   } else {
-    return `Bye.`;
+    response = `Bye.`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
 /**
  * Generate help offer response
  */
-function generateHelpOfferResponse(username, message, traits, relationship) {
+function generateHelpOfferResponse(username, message, traits, relationship, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
   const directness = traits.directness || 0.5;
-  
-  // Try to extract what they need help with
+  const emotionTone = getEmotionTone(detectedEmotion);
+
   const helpMatch = message.match(/(?:help|assist|do|make|build|get|find)\s+(.+)/i);
   const task = helpMatch ? helpMatch[1] : 'that';
-  
+
+  let response;
   if (directness > 0.6) {
-    return warmth > 0.5 
+    response = warmth > 0.5
       ? `I can help with "${task}". Use !bot commands or tell me more details!`
       : `Use !bot <command> for specific tasks.`;
   } else {
-    return `I'd be happy to help! Try using commands like !bot collect wood or !bot goto, or just tell me what you need.`;
+    response = `I'd be happy to help! Try using commands like !bot collect wood or !bot goto, or just tell me what you need.`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
-/**
- * Generate general chat response
- */
-function generateChatResponse(username, message, traits, relationship, context) {
+function generateChatResponse(username, message, traits, relationship, context, detectedEmotion = null) {
   const warmth = traits.warmth || 0.5;
   const curiosity = traits.curiosity || 0.5;
-  
-  // Generate a contextual response
+  const emotionTone = getEmotionTone(detectedEmotion);
+
+  let response;
   if (curiosity > 0.6 && Math.random() > 0.5) {
-    return `That's interesting, ${username}! Tell me more about what you're working on?`;
+    response = `That's interesting, ${username}! Tell me more about what you're working on?`;
   } else if (warmth > 0.6) {
-    return `I hear you, ${username}! Let me know if you need anything.`;
+    response = `I hear you, ${username}! Let me know if you need anything.`;
   } else {
-    return `Understood. Use !bot help if you need commands.`;
+    response = `Understood. Use !bot help if you need commands.`;
   }
+
+  return emotionTone ? `${emotionTone} ${response}` : response;
 }
 
 /**
@@ -392,14 +441,19 @@ function createChatHandler(bot, options = {}) {
   const stateManager = new StateManager(path.join(process.cwd(), 'state'));
   const conversationStore = new ConversationStore();
   const personalityEngine = getPersonalityEngine();
-  
+
+  // Social Awareness module for player sentiment tracking
+  const socialAwareness = new SocialAwareness({
+    emotionDetector: emotionDetector
+  });
+
   // Context tracking for pronoun resolution (last 5 messages)
   const messageContext = [];
-  
+
   // Track if bot spoke last for context
   let lastBotMessage = null;
   let lastBotMessageTime = 0;
-  
+
   // Voice support flag
   const enableVoice = options.enableVoice || false;
   
@@ -439,19 +493,36 @@ function createChatHandler(bot, options = {}) {
       }
     }
     
-    return {
-      botSpokeLast,
-      messagesSinceBotSpoke,
-      lastBotMessage,
-      recentSpeakers: messageContext.slice(-5).map(m => m.username)
-    };
+  return {
+    botSpokeLast,
+    messagesSinceBotSpoke,
+    lastBotMessage,
+    recentSpeakers: messageContext.slice(-5).map(m => m.username)
+  };
   }
-  
+
+  async function detectAndTrackEmotion(username, message) {
+    try {
+      const emotion = await emotionDetector.detectEmotion(message);
+
+      if (emotion && emotion.confidence >= 0.7) {
+        socialAwareness.trackSentiment(username, emotion);
+        logger.debug(`[Chat] Emotion detected for ${username}: ${emotion.emotion} (${emotion.confidence.toFixed(2)})`);
+        return emotion;
+      }
+
+      return null;
+    } catch (error) {
+      logger.warn(`[Chat] Emotion detection failed: ${error.message}`);
+      return null;
+    }
+  }
+
   /**
-   * Handle incoming chat message
-   * @param {string} username - Player who sent message
-   * @param {string} message - The message content
-   */
+ * Handle incoming chat message
+ * @param {string} username - Player who sent message
+ * @param {string} message - The message content
+ */
   async function handleChat(username, message) {
     // Ignore own messages
     if (username === bot.username) return;
@@ -485,32 +556,38 @@ function createChatHandler(bot, options = {}) {
     // Use NLP to detect if bot is addressed
     const nlpResult = isAddressed(message, botName, context);
     
-    if (nlpResult.addressed) {
-      logger.debug(`[Chat] Bot addressed (confidence: ${nlpResult.confidence.toFixed(2)}, reason: ${nlpResult.reason})`);
-      
-      // Generate natural language response
-      const response = await generateNaturalResponse(
-        username,
-        message,
-        bot,
-        personalityEngine,
-        conversationStore,
-        context
-      );
-      
-      // Send response
-      await sendResponse(username, response);
-      
-      // Save to conversation memory
-      await saveInteraction(username, message, response, 'natural');
-      
-      // Update relationship
-      await conversationStore.updateRelationship(username, 'neutral');
-      
-    } else {
-      logger.debug(`[Chat] Message not addressed to bot (confidence: ${nlpResult.confidence.toFixed(2)})`);
-    }
+  if (nlpResult.addressed) {
+    logger.debug(`[Chat] Bot addressed (confidence: ${nlpResult.confidence.toFixed(2)}, reason: ${nlpResult.reason})`);
+
+    // Detect emotion asynchronously (non-blocking, fire and forget for sentiment tracking)
+    const emotionPromise = detectAndTrackEmotion(username, message);
+
+    // Generate natural language response (waits for emotion for better response)
+    const detectedEmotion = await emotionPromise;
+
+    const response = await generateNaturalResponse(
+      username,
+      message,
+      bot,
+      personalityEngine,
+      conversationStore,
+      context,
+      detectedEmotion
+    );
+
+    // Send response
+    await sendResponse(username, response);
+
+    // Save to conversation memory
+    await saveInteraction(username, message, response, 'natural');
+
+    // Update relationship
+    await conversationStore.updateRelationship(username, 'neutral');
+
+  } else {
+    logger.debug(`[Chat] Message not addressed to bot (confidence: ${nlpResult.confidence.toFixed(2)})`);
   }
+}
   
   /**
    * Handle explicit command
@@ -619,33 +696,34 @@ function createChatHandler(bot, options = {}) {
   
   logger.info('[Chat] Chat handler initialized with NLP integration');
   
-  return {
+return {
     bot,
     stateManager,
     conversationStore,
     personalityEngine,
+    socialAwareness,
     commands: COMMANDS,
     messageContext,
-    
+
     /**
-     * Remove event handlers
-     */
+    * Remove event handlers
+    */
     remove() {
       bot.off('chat', handleChat);
       bot.off('bot_command', onBotCommand);
       logger.info('[Chat] Chat handler removed');
     },
-    
+
     /**
-     * Get current context (for testing)
-     */
+    * Get current context (for testing)
+    */
     getContext() {
       return [...messageContext];
     },
-    
+
     /**
-     * Close connections (for cleanup)
-     */
+    * Close connections (for cleanup)
+    */
     async close() {
       await conversationStore.close();
     }
@@ -656,8 +734,8 @@ module.exports = {
   createChatHandler,
   COMMANDS,
   CONTEXT_WINDOW_SIZE,
-  // Export helper functions for testing
   analyzeIntent,
   parseCommand,
-  generateNaturalResponse
+  generateNaturalResponse,
+  getEmotionTone
 };
