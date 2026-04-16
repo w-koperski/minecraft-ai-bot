@@ -316,3 +316,35 @@ Created src/safety/danger-predictor.js with full danger tracking:
 - Direct implementation by Atlas worked when subagent timed out
 - Creating new files is simpler than modifying complex existing classes
 - Test-first approach ensured correctness
+
+## [2026-04-16T21:01:00] Task 5: Skill Registry & Primitive Skills Complete
+
+### Implementation Summary
+Created skill system foundation:
+- `src/skills/skill-registry.js` - Central registry with Map-based O(1) lookup
+- 5 primitive skills in `src/skills/primitives/`: move, dig, place, craft, collect
+- Each skill: name, parameters schema, execute(), expectedOutcome()
+- Auto-registration of primitives in constructor
+- 23 test cases, all passing
+
+### Key Implementation Details
+- Skills return structured result: `{ success, outcome, error }`
+- Parameter validation in each skill
+- Context injection pattern: `{ bot, vision }` passed to execute()
+- Error handling with try-catch and graceful fallback
+- Move skill tracks actual vs requested distance
+
+### Test Coverage
+- Registry CRUD operations: register, get, list, execute
+- All 5 primitive skills tested individually
+- Error handling: invalid params, missing context, skill not found
+- Integration: registry executes skills correctly
+
+### Success Pattern
+- Subagent completed successfully in ~30 minutes
+- Creating new files (skill system) works better than modifying existing complex classes
+- Clear templates and examples in prompt led to consistent implementation
+
+### Next Steps
+- Task 6: Composite Skills (5 skills that chain primitives)
+- Task 6 blocks Task 7 (Skill Executor needs composite skills to test)

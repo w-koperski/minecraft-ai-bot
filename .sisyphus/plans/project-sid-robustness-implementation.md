@@ -704,7 +704,7 @@ Max Concurrent: 4 tasks per wave
   - Files: `src/layers/action-awareness.js`, `tests/unit/action-awareness.test.js`
   - Pre-commit: `npm run test:unit -- action-awareness`
 
-- [ ] 5. Skill Registry & Primitive Skills
+- [x] 5. Skill Registry & Primitive Skills
 
   **What to do**:
   - Create SkillRegistry class to store and retrieve skills
