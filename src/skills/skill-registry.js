@@ -2,6 +2,7 @@ class SkillRegistry {
   constructor() {
     this.skills = new Map();
     this._registerPrimitives();
+    this._registerComposites();
   }
 
   register(skill) {
@@ -44,6 +45,20 @@ class SkillRegistry {
     this.register(placeSkill);
     this.register(craftSkill);
     this.register(collectSkill);
+  }
+
+  _registerComposites() {
+    const gatherWood = require('./composite/gather-wood');
+    const mineStone = require('./composite/mine-stone');
+    const craftTools = require('./composite/craft-tools');
+    const buildShelter = require('./composite/build-shelter');
+    const huntFood = require('./composite/hunt-food');
+
+    this.register(gatherWood);
+    this.register(mineStone);
+    this.register(craftTools);
+    this.register(buildShelter);
+    this.register(huntFood);
   }
 }
 
