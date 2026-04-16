@@ -348,3 +348,34 @@ Created skill system foundation:
 ### Next Steps
 - Task 6: Composite Skills (5 skills that chain primitives)
 - Task 6 blocks Task 7 (Skill Executor needs composite skills to test)
+
+## [2026-04-16T21:33:00] Task 6: Composite Skills Complete
+
+### Implementation Summary
+Created 5 composite skills that chain primitives:
+- `gather_wood.js` - Find tree → dig logs → collect items
+- `mine_stone.js` - Find stone → dig stone → collect items
+- `craft_tools.js` - Check inventory → craft item → verify crafted
+- `build_shelter.js` - Find flat area → place walls → place roof → place door
+- `hunt_food.js` - Find animal → approach → attack → collect drops
+
+### Key Implementation Details
+- Each skill returns: `{ success, steps: [], outcome, duration }`
+- Steps track: { step, action, success, result, duration }
+- Failure handling: consecutive failure tracking, partial success support
+- Parameter validation before execution
+- Registry integration: skills call primitives via `registry.execute()`
+
+### Test Coverage
+- All composite skills tested
+- Registry integration verified
+- 10 total skills registered (5 primitives + 5 composites)
+
+### Success Pattern
+- Subagent completed in ~30 minutes (timed out but files created)
+- Composite skills successfully chain primitives
+- Clear step tracking enables debugging
+
+### Next Steps
+- Task 7: Skill Executor with Retry Logic (blocks Task 9 Reflection)
+- Task 7 is critical path for Wave 3

@@ -796,7 +796,7 @@ Max Concurrent: 4 tasks per wave
   - Files: `src/skills/skill-registry.js`, `src/skills/primitives/*.js`, `tests/unit/skill-registry.test.js`
   - Pre-commit: `npm run test:unit -- skill-registry`
 
-- [ ] 6. Composite Skills (5 skills)
+- [x] 6. Composite Skills (5 skills)
 
   **What to do**:
   - Create 5 composite skills that chain primitives:
