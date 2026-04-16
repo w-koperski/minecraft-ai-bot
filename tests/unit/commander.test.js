@@ -1,27 +1,37 @@
 const Commander = require('../../src/layers/commander');
 const StateManager = require('../../src/utils/state-manager');
 const OmnirouteClient = require('../../src/utils/omniroute');
+const CognitiveController = require('../../src/layers/cognitive-controller');
 
 jest.mock('../../src/utils/state-manager');
 jest.mock('../../src/utils/omniroute');
+jest.mock('../../src/layers/cognitive-controller');
 
 describe('Commander Layer', () => {
   let commander;
   let mockStateManager;
   let mockOmniroute;
+  let mockCognitiveController;
 
   beforeEach(() => {
     mockStateManager = {
       read: jest.fn(),
       write: jest.fn()
     };
-    
+
     mockOmniroute = {
       commander: jest.fn()
     };
 
+    mockCognitiveController = {
+      synthesize: jest.fn(),
+      checkCoherence: jest.fn(),
+      broadcast: jest.fn()
+    };
+
     StateManager.mockImplementation(() => mockStateManager);
     OmnirouteClient.mockImplementation(() => mockOmniroute);
+    CognitiveController.mockImplementation(() => mockCognitiveController);
 
     commander = new Commander();
   });
@@ -39,6 +49,10 @@ describe('Commander Layer', () => {
       expect(commander.loopTimer).toBe(null);
       expect(commander.failureCount).toBe(0);
       expect(commander.consecutiveErrors).toBe(0);
+    });
+
+    test('should initialize Cognitive Controller', () => {
+      expect(commander.cognitiveController).toBeDefined();
     });
   });
 
@@ -426,6 +440,179 @@ describe('Commander Layer', () => {
       expect(status.running).toBe(true);
       expect(status.currentGoal).toBe('collect wood');
       expect(status.failureCount).toBe(2);
+    });
+  });
+
+  describe('Cognitive Controller Integration', () => {
+    test('should build cognitive inputs correctly', () => {
+      const memory = {
+        working: {
+          state: { health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [] },
+          commands: { goal: 'collect wood' },
+          plan: []
+        },
+        stm: []
+      };
+
+      const analysis = {
+        threatLevel: 'safe',
+        hasState: true,
+        hasGoal: true,
+        hasPlan: false,
+        botAlive: true
+      };
+
+      const stuckDetection = { isStuck: false, reasons: [], severity: 0 };
+
+      const inputs = commander.buildCognitiveInputs(memory, analysis, stuckDetection);
+
+      expect(inputs.personality).toBeDefined();
+      expect(inputs.personality.active).toBe(true);
+      expect(inputs.goals).toBeDefined();
+      expect(inputs.goals.active).toBe(true);
+      expect(inputs.goals.action.type).toBe('pursue_goal');
+    });
+
+    test('should include danger input when threat detected', () => {
+      const memory = {
+        working: {
+          state: { health: 4, position: { x: 0, y: 64, z: 0 }, entities: [{ type: 'hostile', name: 'zombie', distance: 5 }], blocks: [] },
+          commands: { goal: 'collect wood' },
+          plan: []
+        },
+        stm: []
+      };
+
+      const analysis = {
+        threatLevel: 'high',
+        hasState: true,
+        hasGoal: true,
+        hasPlan: false,
+        botAlive: true
+      };
+
+      const stuckDetection = { isStuck: false, reasons: [], severity: 0 };
+
+      const inputs = commander.buildCognitiveInputs(memory, analysis, stuckDetection);
+
+      expect(inputs.danger).toBeDefined();
+      expect(inputs.danger.active).toBe(true);
+      expect(inputs.danger.action.type).toBe('flee');
+    });
+
+    test('should call cognitiveController.synthesize in loop', async () => {
+      mockStateManager.read.mockImplementation((key) => {
+        if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+        if (key === 'plan') return Promise.resolve([]);
+        if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+        if (key === 'action_error') return Promise.resolve(null);
+        if (key === 'action_history') return Promise.resolve([]);
+        return Promise.resolve(null);
+      });
+
+      mockCognitiveController.synthesize.mockReturnValue({
+        action: { type: 'idle' },
+        priority: 'normal',
+        source: 'default',
+        coherence: true,
+        timestamp: Date.now()
+      });
+
+      mockOmniroute.commander.mockResolvedValue({
+        choices: [{ message: { content: '{"action": "continue", "reasoning": "Test"}' } }]
+      });
+
+      await commander.loop();
+
+      expect(mockCognitiveController.synthesize).toHaveBeenCalled();
+    });
+
+    test('should call cognitiveController.broadcast in loop', async () => {
+      mockStateManager.read.mockImplementation((key) => {
+        if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+        if (key === 'plan') return Promise.resolve([]);
+        if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+        if (key === 'action_error') return Promise.resolve(null);
+        if (key === 'action_history') return Promise.resolve([]);
+        return Promise.resolve(null);
+      });
+
+      mockCognitiveController.synthesize.mockReturnValue({
+        action: { type: 'idle' },
+        priority: 'normal',
+        source: 'default',
+        coherence: true,
+        timestamp: Date.now()
+      });
+
+      mockOmniroute.commander.mockResolvedValue({
+        choices: [{ message: { content: '{"action": "continue", "reasoning": "Test"}' } }]
+      });
+
+      await commander.loop();
+
+      expect(mockCognitiveController.broadcast).toHaveBeenCalled();
+    });
+
+    test('should check coherence before executing decision with talk', async () => {
+      mockStateManager.read.mockImplementation((key) => {
+        if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+        if (key === 'plan') return Promise.resolve([]);
+        if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+        if (key === 'action_error') return Promise.resolve(null);
+        if (key === 'action_history') return Promise.resolve([]);
+        return Promise.resolve(null);
+      });
+
+      mockCognitiveController.synthesize.mockReturnValue({
+        action: { type: 'idle' },
+        priority: 'normal',
+        source: 'default',
+        coherence: true,
+        timestamp: Date.now()
+      });
+
+      mockCognitiveController.checkCoherence.mockReturnValue(true);
+
+      mockOmniroute.commander.mockResolvedValue({
+        choices: [{ message: { content: '{"action": "continue", "reasoning": "Test", "talk": "I will help you"}' } }]
+      });
+
+      await commander.loop();
+
+      expect(mockCognitiveController.checkCoherence).toHaveBeenCalledWith(
+        'I will help you',
+        expect.objectContaining({ action: 'continue' })
+      );
+    });
+
+    test('should defer decision when coherence check fails', async () => {
+      mockStateManager.read.mockImplementation((key) => {
+        if (key === 'state') return Promise.resolve({ health: 20, position: { x: 0, y: 64, z: 0 }, entities: [], blocks: [], inventory: [] });
+        if (key === 'plan') return Promise.resolve([]);
+        if (key === 'commands') return Promise.resolve({ goal: 'test goal' });
+        if (key === 'action_error') return Promise.resolve(null);
+        if (key === 'action_history') return Promise.resolve([]);
+        return Promise.resolve(null);
+      });
+
+      mockCognitiveController.synthesize.mockReturnValue({
+        action: { type: 'idle' },
+        priority: 'normal',
+        source: 'default',
+        coherence: true,
+        timestamp: Date.now()
+      });
+
+      mockCognitiveController.checkCoherence.mockReturnValue(false);
+
+      mockOmniroute.commander.mockResolvedValue({
+        choices: [{ message: { content: '{"action": "new_goal", "goal": "attack player", "reasoning": "Test", "talk": "I will help you"}' } }]
+      });
+
+      await commander.loop();
+
+      expect(mockCognitiveController.checkCoherence).toHaveBeenCalled();
     });
   });
 });

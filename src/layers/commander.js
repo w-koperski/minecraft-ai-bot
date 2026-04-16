@@ -21,6 +21,7 @@ const OmnirouteClient = require('../utils/omniroute');
 const PersonalityEngine = require('../../personality/personality-engine');
 const ConversationStore = require('../memory/conversation-store');
 const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
+const CognitiveController = require('./cognitive-controller');
 const fs = require('fs');
 const path = require('path');
 
@@ -79,6 +80,7 @@ class Commander {
     this.omniroute = new OmnirouteClient();
     this.personalityEngine = PersonalityEngine.getInstance();
     this.conversationStore = new ConversationStore();
+    this.cognitiveController = new CognitiveController();
 
     this.running = false;
     this.loopTimer = null;
@@ -183,75 +185,115 @@ class Commander {
     }, COMMANDER_INTERVAL);
   }
 
-/**
-* Main monitoring loop
-*/
-async loop() {
-  const loopStart = Date.now();
+  /**
+   * Main monitoring loop
+   */
+  async loop() {
+    const loopStart = Date.now();
 
-  try {
-    // 1. Gather all memory tiers
-    const memory = await this.gatherMemory();
+    try {
+      // 1. Gather all memory tiers
+      const memory = await this.gatherMemory();
 
-    // 2. Analyze current situation
-    const analysis = this.analyzeSituation(memory);
+      // 2. Analyze current situation
+      const analysis = this.analyzeSituation(memory);
 
-    // 3. Detect stuck conditions
-    const stuckDetection = this.detectStuck(memory, analysis);
+      // 3. Detect stuck conditions
+      const stuckDetection = this.detectStuck(memory, analysis);
 
-    // 4. Check for idle state and generate autonomous goal if needed
-    const idleState = this.detectIdleState(memory, analysis);
-    if (idleState.isIdle && this.autonomyEnabled) {
-      const autonomousGoal = await this.generateAutonomousGoal(memory, analysis);
-      if (autonomousGoal) {
-        await this.executeDecision({
-          action: 'new_goal',
-          goal: autonomousGoal.goal,
-          reasoning: autonomousGoal.reasoning,
-          source: 'autonomous',
-          timestamp: Date.now()
-        });
-        this.lastAutonomousGoalTime = Date.now();
-        this.updateMonitoringState(memory, { action: 'new_goal', goal: autonomousGoal.goal });
-        this.recordDecision({ action: 'new_goal', goal: autonomousGoal.goal }, analysis, stuckDetection);
-        return;
+      // 4. Build cognitive inputs for Controller
+      const cognitiveInputs = this.buildCognitiveInputs(memory, analysis, stuckDetection);
+
+      // 5. Synthesize through Cognitive Controller (PIANO bottleneck)
+      const controllerDecision = this.cognitiveController.synthesize(cognitiveInputs);
+
+      // 6. Check for idle state and generate autonomous goal if needed
+      const idleState = this.detectIdleState(memory, analysis);
+      if (idleState.isIdle && this.autonomyEnabled) {
+        const autonomousGoal = await this.generateAutonomousGoal(memory, analysis);
+        if (autonomousGoal) {
+          // Check coherence before executing
+          if (autonomousGoal.talk) {
+            const isCoherent = this.cognitiveController.checkCoherence(
+              autonomousGoal.talk,
+              { type: 'new_goal', goal: autonomousGoal.goal }
+            );
+            if (!isCoherent) {
+              logger.warn('Commander: Autonomous goal failed coherence check, deferring', {
+                goal: autonomousGoal.goal,
+                talk: autonomousGoal.talk
+              });
+              return;
+            }
+          }
+          
+          await this.executeDecision({
+            action: 'new_goal',
+            goal: autonomousGoal.goal,
+            reasoning: autonomousGoal.reasoning,
+            source: 'autonomous',
+            timestamp: Date.now(),
+            controllerDecision
+          });
+          this.lastAutonomousGoalTime = Date.now();
+          this.updateMonitoringState(memory, { action: 'new_goal', goal: autonomousGoal.goal });
+          this.recordDecision({ action: 'new_goal', goal: autonomousGoal.goal }, analysis, stuckDetection);
+          return;
+        }
+      }
+
+      // 7. Make decision (call Claude Sonnet 4.5)
+      const decision = await this.makeDecision(memory, analysis, stuckDetection);
+
+      // 8. Check coherence between talk and action before executing
+      if (decision.talk && decision.action) {
+        const isCoherent = this.cognitiveController.checkCoherence(decision.talk, decision);
+        if (!isCoherent) {
+          logger.warn('Commander: Decision failed coherence check, adjusting', {
+            action: decision.action,
+            talk: decision.talk
+          });
+          // Defer conflicting action, use fallback
+          decision.action = 'continue';
+          decision.reasoning = 'Coherence conflict detected: ' + decision.reasoning;
+        }
+      }
+
+      // 9. Broadcast decision through Cognitive Controller
+      this.cognitiveController.broadcast(controllerDecision);
+
+      // 10. Execute decision (write commands)
+      await this.executeDecision(decision);
+
+      // 11. Update monitoring state
+      this.updateMonitoringState(memory, decision);
+
+      // 12. Record decision in history
+      this.recordDecision(decision, analysis, stuckDetection);
+
+      const loopDuration = Date.now() - loopStart;
+      logger.debug('Commander: Loop completed', {
+        duration: loopDuration,
+        decision: decision.action,
+        stuck: stuckDetection.isStuck,
+        idle: idleState.isIdle,
+        controllerSource: controllerDecision.source
+      });
+
+    } catch (error) {
+      logger.error('Commander: Loop execution failed', {
+        error: error.message,
+        stack: error.stack
+      });
+      this.consecutiveErrors++;
+
+      // If too many errors, issue emergency stop
+      if (this.consecutiveErrors >= 5) {
+        logger.error('Commander: Too many consecutive errors, issuing emergency stop');
+        await this.issueEmergencyStop();
       }
     }
-
-    // 5. Make decision (call Claude Sonnet 4.5)
-    const decision = await this.makeDecision(memory, analysis, stuckDetection);
-
-    // 6. Execute decision (write commands)
-    await this.executeDecision(decision);
-
-    // 7. Update monitoring state
-    this.updateMonitoringState(memory, decision);
-
-    // 8. Record decision in history
-    this.recordDecision(decision, analysis, stuckDetection);
-
-    const loopDuration = Date.now() - loopStart;
-    logger.debug('Commander: Loop completed', {
-      duration: loopDuration,
-      decision: decision.action,
-      stuck: stuckDetection.isStuck,
-      idle: idleState.isIdle
-    });
-
-  } catch (error) {
-    logger.error('Commander: Loop execution failed', {
-      error: error.message,
-      stack: error.stack
-    });
-    this.consecutiveErrors++;
-
-    // If too many errors, issue emergency stop
-    if (this.consecutiveErrors >= 5) {
-      logger.error('Commander: Too many consecutive errors, issuing emergency stop');
-      await this.issueEmergencyStop();
-    }
   }
-}
 
   /**
    * Gather all memory tiers
@@ -316,6 +358,64 @@ async loop() {
     };
 
     return analysis;
+  }
+
+  /**
+   * Build cognitive inputs for Cognitive Controller
+   * Aggregates personality, emotion, social, goals, and danger signals
+   */
+  buildCognitiveInputs(memory, analysis, stuckDetection) {
+    const state = memory.working.state;
+    const commands = memory.working.commands;
+    const traits = this.personalityEngine.getTraits();
+
+    const inputs = {
+      personality: {
+        traits: traits,
+        active: true,
+        confidence: 1.0
+      },
+      emotion: null,
+      social: null,
+      goals: null,
+      danger: null
+    };
+
+    if (commands && commands.goal) {
+      inputs.goals = {
+        active: true,
+        action: { type: 'pursue_goal', goal: commands.goal },
+        confidence: 0.8
+      };
+    }
+
+    if (analysis.threatLevel === 'high' || analysis.threatLevel === 'moderate') {
+      const dangerReasons = [];
+      if (state && state.health < 6) dangerReasons.push('low_health');
+      if (state && state.entities && state.entities.some(e => e.type === 'hostile' && e.distance < 16)) {
+        dangerReasons.push('hostile_mobs');
+      }
+      if (state && state.blocks && state.blocks.some(b => b.name === 'lava' && b.distance < 8)) {
+        dangerReasons.push('lava');
+      }
+
+      inputs.danger = {
+        active: true,
+        action: { type: 'flee', reason: dangerReasons.join(', ') },
+        reason: dangerReasons.join(', '),
+        confidence: 0.95
+      };
+    }
+
+    if (stuckDetection.isStuck) {
+      inputs.goals = {
+        active: true,
+        action: { type: 'unstuck', reasons: stuckDetection.reasons },
+        confidence: 0.7
+      };
+    }
+
+    return inputs;
   }
 
   /**
@@ -811,12 +911,13 @@ What should the bot do next?`
         throw new Error(`Invalid action: ${parsed.action}`);
       }
 
-      return {
-        action: parsed.action,
-        goal: parsed.goal || null,
-        correction: parsed.correction || null,
-        reasoning: parsed.reasoning || 'No reasoning provided',
-        timestamp: Date.now()
+    return {
+      action: parsed.action,
+      goal: parsed.goal || null,
+      correction: parsed.correction || null,
+      reasoning: parsed.reasoning || 'No reasoning provided',
+      talk: parsed.talk || null,
+      timestamp: Date.now()
       };
 
     } catch (error) {
