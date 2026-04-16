@@ -291,7 +291,7 @@ Max Concurrent: 4 tasks per wave
   - Message: `chore(testing): define integration test matrix`
   - Files: `.sisyphus/integration-matrix.md`
 
-- [ ] 0.3. Define Edge Case Test Matrix
+- [x] 0.3. Define Edge Case Test Matrix
 
   **What to do**:
   - Document all 12 edge cases from Metis analysis (E1-E12)

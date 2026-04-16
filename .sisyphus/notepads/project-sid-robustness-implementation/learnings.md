@@ -71,3 +71,65 @@ Matrix covers all critical integration points across Wave 1-3:
 - Task 0.3: Edge Case Test Matrix (Metis E1-E12)
 - Task 0.4: Rollback Criteria
 - Begin Wave 1: T1 (Enhanced Action Awareness) - unblocks T7
+## [2026-04-16T17:30:00] Task 0.3 Edge Case Test Matrix Complete
+
+### Key Findings:
+
+#### 12 Edge Cases Documented (E1-E12)
+All edge cases from Metis analysis have test scenarios defined:
+
+**Bot Lifecycle (E1-E2):**
+- E1: Death and Respawn - CRITICAL - Already covered by existing E2E tests
+- E2: Disconnection and Reconnection - CRITICAL - T1 handles this
+
+**Resource Limits (E3, E5, E12):**
+- E3: Resource Limits (Memory, CPU) - HIGH - T2, T5
+- E5: Memory Overflow (>10k KG nodes) - HIGH - T2 (validated: 7ms per 1000 nodes)
+- E12: RPM Throttling - HIGH - Existing rate limiter (validated: ~1.033 RPM new)
+
+**Concurrency (E4, E10):**
+- E4: Race Conditions in State Files - HIGH - T2 (lockfile 5s timeout)
+- E10: Consolidation Failures - MEDIUM - T2 (timer-based, 10 min interval)
+
+**Logic Failures (E6-E9, E11):**
+- E6: Stuck Detection - HIGH - T1 (existing in pilot.js: <0.1 block for 10s)
+- E7: Goal Conflicts - MEDIUM - T11, T12 (player priority, danger penalty)
+- E8: Skill Failures - HIGH - T7 (confidence scoring, retry logic)
+- E9: Reflection Errors - MEDIUM - T9 (metrics from ActionAwareness)
+- E11: Danger False Positives - MEDIUM - T3 (7-day decay, 0-50% penalty)
+
+#### Edge Case Assignment Summary
+- 2 CRITICAL: E1 (Death), E2 (Disconnection)
+- 6 HIGH: E3, E4, E5, E6, E8, E12
+- 4 MEDIUM: E7, E9, E10, E11
+
+#### Key Integration Points Identified
+1. **pilot.js stuck detection** (lines 534-578): <0.1 block, 10s duration, 5s check interval
+2. **error-recovery.test.js**: Existing patterns for death, stuck, disconnect, world boundary
+3. **validation-report.md A2**: consolidate() benchmarked at 7ms per 1000 nodes
+4. **validation-report.md A5**: RPM budget shows ~1.033 RPM margin for new features
+
+#### Test Templates Created
+- Template A: Resource Exhaustion Tests (memory, RPM limits)
+- Template B: Network Failure Tests (disconnect, reconnect)
+- Template C: Logic Failure Tests (stuck, skill failures)
+- Template D: Timer/Async Failure Tests (consolidation, reflection)
+
+#### Important Patterns from Pilot.js
+- Adaptive loop intervals: danger 200ms, active 500ms, idle 2000ms
+- Threat detection: hostile mobs <16, lava <8, health <6
+- Stuck threshold: <0.1 block movement for >10 seconds
+- Error handling: try/catch with state write to action_error.json
+
+#### Important Patterns from error-recovery.test.js
+- Death tests: /kill command, waitForCondition for respawn
+- Stuck tests: fill with bedrock, teleport, pathfinder goals
+- Connection tests: disconnectBot, reconnection with new bot instance
+- Error handling: kicked event, world boundary, void fall
+
+#### File Created
+- .sisyphus/edge-case-matrix.md (comprehensive matrix with all 12 edge cases)
+
+### Next Steps
+- Task 0.4: Rollback Criteria Definition
+- Begin Wave 1: T1 (Enhanced Action Awareness) - unblocks T7, T9
