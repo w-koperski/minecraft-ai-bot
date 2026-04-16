@@ -26,6 +26,13 @@ Control your bot hands-free through Discord voice channels. Simply say "Hey bot"
 ### Autonomous Goals
 When idle and safe, the bot generates its own goals based on its personality. A curious bot explores. A loyal bot stays close to assist. The bot considers recent conversations (if you mentioned wanting diamonds, it might go searching).
 
+### PIANO Architecture
+The bot uses a four-module system for personality-driven companion behavior:
+- **Cognitive Controller** - Synthesizes inputs from all modules into unified decisions using priority rules (Danger > Social > Goals)
+- **Emotion Detector** - Real-time emotion classification using transformers.js (13 emotion classes, P99 <50ms)
+- **Social Awareness** - Tracks player mental states using BDI model (Beliefs, Desires, Intentions)
+- **Knowledge Graph** - In-memory graph storage with temporal validity and LRU eviction (P99 <10ms)
+
 **Learn more:** [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) has complete setup instructions and examples.
 
 ## 🏗️ Architecture
@@ -178,45 +185,51 @@ See [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) for complete Discord set
 ```
 minecraft-ai-bot/
 ├── src/
-│   ├── bot.js                 # Main entry point
-│   ├── index.js               # Full 3-layer system with companion features
+│   ├── bot.js # Main entry point
+│   ├── index.js # Full 3-layer system with companion features
 │   ├── layers/
-│   │   ├── pilot.js           # Layer 1: Fast reactions
-│   │   ├── strategy.js        # Layer 2: Planning
-│   │   ├── commander.js       # Layer 3: Goals
+│   │   ├── pilot.js # Layer 1: Fast reactions
+│   │   ├── strategy.js # Layer 2: Planning
+│   │   ├── commander.js # Layer 3: Goals
+│   │   ├── cognitive-controller.js # PIANO decision synthesis
 │   │   └── action-awareness.js # PIANO verification
+│   ├── emotion/
+│   │   └── emotion-detector.js # Emotion classification
+│   ├── social/
+│   │   └── social-awareness.js # Player BDI model
 │   ├── memory/
-│   │   └── conversation-store.js # Persistent chat memory
+│   │   ├── conversation-store.js # Persistent chat memory
+│   │   └── knowledge-graph.js # Memory with temporal validity
 │   ├── voice/
-│   │   └── discord-voice.js   # Discord voice integration
+│   │   └── discord-voice.js # Discord voice integration
 │   ├── utils/
-│   │   ├── state-manager.js   # File locking with lockfile
-│   │   ├── omniroute.js       # LLM API client
-│   │   ├── rate-limiter.js    # Bottleneck wrapper
-│   │   └── logger.js          # Winston logger
+│   │   ├── state-manager.js # File locking with lockfile
+│   │   ├── omniroute.js # LLM API client
+│   │   ├── rate-limiter.js # Bottleneck wrapper
+│   │   └── logger.js # Winston logger
 │   └── actions/
-│       ├── crafting.js        # Recipe execution
-│       └── building.js        # Structure placement
+│       ├── crafting.js # Recipe execution
+│       └── building.js # Structure placement
 ├── personality/
-│   └── Soul.md                # Personality configuration
+│   └── Soul.md # Personality configuration
 ├── prompts/
-│   ├── pilot.txt              # Pilot prompt
-│   ├── strategy.txt           # Strategy prompt
-│   └── commander.txt          # Commander prompt
+│   ├── pilot.txt # Pilot prompt
+│   ├── strategy.txt # Strategy prompt
+│   └── commander.txt # Commander prompt
 ├── examples/
-│   ├── personality-demo.js    # Personality customization demo
-│   └── voice-demo.js          # Discord voice setup demo
+│   ├── personality-demo.js # Personality customization demo
+│   └── voice-demo.js # Discord voice setup demo
 ├── state/
-│   ├── state.json             # Current bot state
-│   ├── commands.json          # Commander → Strategy
-│   ├── plan.json              # Strategy → Pilot
-│   └── memory.db              # SQLite conversation storage
+│   ├── state.json # Current bot state
+│   ├── commands.json # Commander → Strategy
+│   ├── plan.json # Strategy → Pilot
+│   └── memory.db # SQLite conversation storage
 ├── docs/
-│   └── COMPANION_FEATURES.md  # Companion features documentation
+│   └── COMPANION_FEATURES.md # Companion features documentation
 └── tests/
-    ├── unit/                  # Unit tests
-    ├── integration/           # Layer communication tests
-    └── e2e/                   # End-to-end tests
+    ├── unit/ # Unit tests
+    ├── integration/ # Layer communication tests
+    └── e2e/ # End-to-end tests
 ```
 
 ## 🔧 Development

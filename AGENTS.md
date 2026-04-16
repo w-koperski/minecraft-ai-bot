@@ -1,80 +1,99 @@
 # AGENTS.md - Minecraft AI Bot
 
-**Status:** MVP implemented, tests passing (129/129)  
+**Status:** Companion bot complete, tests passing (all unit/integration)  
 **Last updated:** 2026-04-15
 
 ---
 
-## Project State
+## Quick Commands
 
-**Implemented (9400+ lines):**
-- 3-layer AI system (Pilot/Strategy/Commander)
-- Core utilities (state-manager, rate-limiter, omniroute client, logger)
-- Action Awareness (PIANO-inspired verification)
-- Enhanced vision system
-- Extended features (memory, chat, safety, crafting, building)
-- Test suite (unit, integration, e2e) - 70% coverage target
-
-**Not implemented:**
-- Voice integration (see `VOICE_OPTIONS.md`)
-- Prompts directory (LLM prompts are inline in layer files)
-
----
-
-## Quick Start
-
-### Setup
 ```bash
-npm install
-cp .env.example .env
-# Edit .env: set MINECRAFT_HOST, OMNIROUTE_URL, OMNIROUTE_API_KEY
-```
+# Setup
+npm install && cp .env.example .env
+# Edit .env: MINECRAFT_HOST, MINECRAFT_PORT, OMNIROUTE_URL, OMNIROUTE_API_KEY
 
-### Run bot
-```bash
-node src/index.js    # Full 3-layer system
-node src/bot.js      # Standalone (no layers)
-```
+# Run
+node src/index.js              # Full 3-layer system + companion features
+node src/bot.js                # Standalone (no AI layers)
 
-### Test commands
-```bash
-npm test                    # Unit + integration (excludes e2e)
-npm run test:unit           # Unit tests only
-npm run test:integration    # Integration tests only
-npm run test:e2e            # E2E tests (requires Minecraft server)
-npm run test:coverage       # With coverage report
-```
+# Test (order matters for coverage)
+npm test                       # Unit + integration (excludes e2e)
+npm run test:unit              # Unit only
+npm run test:integration       # Integration only
+npm run test:coverage          # With coverage report (70% target)
+npm run test:e2e               # E2E (needs Minecraft server)
+npm run test:all               # All tests sequentially
 
-### Minecraft server (for e2e tests)
-```bash
-npm run mc:start     # Start Docker container
-npm run mc:stop      # Stop and remove container
-npm run mc:restart   # Restart container
+# Minecraft server (Docker, for e2e tests)
+npm run mc:start               # Start container
+npm run mc:stop                # Stop and remove
+npm run mc:restart             # Restart
+
+# Set goals (file-based commands)
+echo '{"goal": "collect 64 oak logs"}' > state/commands.json
+echo '[]' > state/plan.json    # Clear plan if stuck
 ```
 
 ---
 
-## Architecture Overview
+## Architecture
 
 **3-layer AI system:**
 ```
-Commander (Claude Sonnet 4.5, ~1s) → High-level goals, monitoring
+Commander (Claude Sonnet 4.5, ~1s) → High-level goals
     ↓
-Strategy (Qwen 2.5 7B, 410ms) → Multi-step planning, pathfinding
+Strategy (Qwen 2.5 7B, 410ms) → Multi-step planning
     ↓
-Pilot (Llama 3.2 1B, 210ms) → Fast reactions, hazard avoidance
+Pilot (Llama 3.2 1B, 210ms) → Fast reactions
     ↓
-Mineflayer → Minecraft server connection
+Mineflayer → Minecraft actions
 ```
 
-**Critical constraints:**
-- Rate limit: 560 RPM (Omniroute API) - use 80% buffer (448 req/min)
-- Pilot loop: 200ms-2s adaptive (faster when threats detected)
-- Strategy loop: 2-5s
-- Commander loop: 10-30s
+**Rate limits:**
+- Omniroute API: 560 RPM hard limit
+- Bot uses 448 RPM (80% buffer) via `bottleneck` library
+- Shared limiter across all 3 layers
 
-**Key innovation - Action Awareness (PIANO):**
-Every action must be verified before next decision. Prevents hallucination compounding where bot thinks it succeeded but actually failed.
+**Adaptive Pilot loop:**
+- Danger: 200ms (hostile mobs <16 blocks, lava <8 blocks, health <6)
+- Active: 500ms (executing actions)
+- Idle: 2000ms (no threats, no actions)
+
+**Action Awareness (PIANO):**
+Wraps every bot action with outcome verification. Prevents "bot thinks it succeeded but didn't" failures.
+
+**PIANO Architecture (Companion Modules):**
+Four-module system for personality-driven companion behavior:
+
+```
+CognitiveController (cognitive-controller.js)
+├── Receives inputs from all modules (personality, emotion, social, goals)
+├── Synthesizes unified decision via priority rules
+└── Broadcasts coherent behavior to all modules
+
+EmotionDetector (emotion-detector.js)
+├── Uses transformers.js with MicahB/emotion_text_classifier
+├── 13 emotion classes: joy, sadness, anger, fear, etc.
+├── P99 latency <50ms, confidence threshold 0.7
+└── Lazy-loaded pipeline (initialized on first use)
+
+SocialAwareness (social-awareness.js)
+├── BDI model: Beliefs, Desires, Intentions per player
+├── Sentiment tracking with trend analysis
+├── Intention inference from message + context
+└── Integrates with EmotionDetector for emotion context
+
+KnowledgeGraph (knowledge-graph.js)
+├── Graph storage with graphology + temporal validity
+├── LRU eviction (max 10,000 nodes)
+├── Memory types: spatial, temporal, episodic, semantic
+└── P99 latency <10ms
+```
+
+**Priority Rules (Cognitive Controller):**
+1. **Danger (Pilot)** - immediate survival threats (always wins)
+2. **Social (Strategy)** - player interactions, emotions
+3. **Goals (Commander)** - long-term objectives
 
 ---
 
@@ -82,36 +101,45 @@ Every action must be verified before next decision. Prevents hallucination compo
 
 ```
 src/
-├── index.js              # Main orchestrator (all 3 layers)
-├── bot.js                # Standalone bot (no AI layers)
+├── index.js # Full 3-layer system + companion features
+├── bot.js # Standalone (no AI layers)
 ├── layers/
-│   ├── pilot.js          # Fast reactions (200-2000ms adaptive)
-│   ├── strategy.js       # Multi-step planning
-│   ├── commander.js      # High-level monitoring
-│   └── action-awareness.js  # PIANO verification wrapper
+│   ├── pilot.js # Fast reactions (adaptive 200-2000ms)
+│   ├── strategy.js # Multi-step planning
+│   ├── commander.js # High-level monitoring
+│   ├── cognitive-controller.js # PIANO decision synthesis
+│   └── action-awareness.js # PIANO verification
+├── emotion/
+│   └── emotion-detector.js # Emotion classification
+├── social/
+│   └── social-awareness.js # Player BDI model
+├── memory/
+│   └── knowledge-graph.js # Memory with temporal validity
 ├── utils/
-│   ├── state-manager.js  # File locking with lockfile
+│   ├── state-manager.js  # File locking (lockfile, 5s timeout)
 │   ├── omniroute.js      # LLM API client
 │   ├── rate-limiter.js   # Bottleneck wrapper
-│   ├── logger.js         # Winston logger
-│   ├── vision-enhanced.js # Game state extraction
-│   ├── schemas.js        # JSON validation
-│   └── errors.js         # Custom error types
-├── actions/
-│   ├── crafting.js       # Recipe execution
-│   └── building.js       # Structure placement
+│   └── logger.js         # Winston logger
 ├── memory/
-│   └── memory-store.js   # SQLite persistence
+│   └── memory-store.js   # SQLite conversation storage
 ├── chat/
 │   └── chat-handler.js   # In-game commands
-└── safety/
-    └── safety-manager.js # Griefing prevention
+└── personality/
+    └── personality-engine.js  # Trait system
+
+personality/
+└── Soul.md               # Personality configuration
+
+state/
+├── state.json            # Current bot state
+├── commands.json         # Commander → Strategy
+├── plan.json             # Strategy → Pilot
+└── memory.db             # SQLite database
 
 tests/
-├── unit/                 # Isolated component tests
-├── integration/          # Layer communication tests
-├── e2e/                  # Full bot lifecycle tests
-├── mocks/                # Test doubles
+├── unit/                 # Component tests (mocks)
+├── integration/          # Layer communication
+├── e2e/                  # Full lifecycle (needs server)
 └── helpers/              # Test utilities
 ```
 
@@ -148,7 +176,7 @@ tests/
 
 **Unit tests (tests/unit/):**
 - All utilities in isolation with mocks
-- 129 tests passing, 70% coverage target
+- 70% coverage target
 - Run: `npm run test:unit`
 
 **Integration tests (tests/integration/):**
@@ -259,6 +287,8 @@ Voice adds 3-4s latency (STT + processing + TTS), suitable for strategy commands
 - Rate limit prevents scaling to 1000s of bots
 - Minecraft Java Edition only (Bedrock not supported by Mineflayer)
 - Headless server requires Docker for Minecraft server
+- Emotion detector has 30% test coverage (dynamic imports, model loading)
+- Validation test file in `.sisyphus/evidence/` causes Jest worker crash
 
 ---
 
@@ -267,9 +297,9 @@ Voice adds 3-4s latency (STT + processing + TTS), suitable for strategy commands
 **Current state:** MVP implementation complete (commit ac6d955)
 
 **Recent commits:**
+- `7584799` - Complete companion bot transformation
 - `ac6d955` - Complete MVP implementation (all layers, tests passing)
 - `f4fe71a` - Add Pilot layer with adaptive loop
-- Earlier commits: Planning and documentation
 
 **Branch strategy:**
 - Main branch has working MVP
