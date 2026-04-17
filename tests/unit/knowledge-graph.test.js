@@ -944,14 +944,137 @@ describe('KnowledgeGraph', () => {
       expect(stats.stmToEpisodic).toBe(1);
     });
 
-    test('should return tier statistics', () => {
-      kg.addEpisodicMemory('stm1', [], null, Date.now(), 5);
-      kg.addEpisodicMemory('stm2', [], null, Date.now(), 5);
+test('should return tier statistics', () => {
+     kg.addEpisodicMemory('stm1', [], null, Date.now(), 5);
+     kg.addEpisodicMemory('stm2', [], null, Date.now(), 5);
 
-      const tierStats = kg.getMemoryTierStats();
-      expect(tierStats.stm).toBe(2);
-      expect(tierStats.episodic).toBe(0);
-      expect(tierStats.ltm).toBe(0);
-    });
-  });
+     const tierStats = kg.getMemoryTierStats();
+     expect(tierStats.stm).toBe(2);
+     expect(tierStats.episodic).toBe(0);
+     expect(tierStats.ltm).toBe(0);
+   });
+ });
+
+ // ============================================
+ // Persistence Tests
+ // ============================================
+
+ describe('Save and Load', () => {
+   const fs = require('fs').promises;
+   const path = require('path');
+   const testFilePath = path.join(__dirname, '..', '..', 'state', 'test-knowledge-graph.json');
+
+   afterEach(async () => {
+     try {
+       await fs.unlink(testFilePath);
+     } catch (e) {
+       // Ignore if file doesn't exist
+     }
+   });
+
+   test('should save graph to file', async () => {
+     kg.addEntity('player1', 'player', { name: 'Alice' });
+     kg.addEntity('location1', 'location');
+
+     const result = await kg.save(testFilePath);
+     expect(result).toBe(true);
+
+     const content = await fs.readFile(testFilePath, 'utf8');
+     const data = JSON.parse(content);
+     expect(data.version).toBe(1);
+     expect(data.nodes.length).toBe(2);
+     expect(data.edges.length).toBe(0);
+   });
+
+   test('should preserve entity data on save', async () => {
+     kg.addEntity('player1', 'player', { name: 'Alice', health: 20 });
+     kg.addEntity('player2', 'player');
+     kg.addRelation('player1', 'player2', 'FRIEND', { since: '2026-01-01' });
+
+     await kg.save(testFilePath);
+
+     const content = await fs.readFile(testFilePath, 'utf8');
+     const data = JSON.parse(content);
+
+     const player1 = data.nodes.find(n => n.id === 'player1');
+     expect(player1.type).toBe('player');
+     expect(player1.properties.name).toBe('Alice');
+     expect(player1.properties.health).toBe(20);
+
+     expect(data.edges.length).toBe(1);
+     expect(data.edges[0].relationType).toBe('FRIEND');
+     expect(data.edges[0].metadata.since).toBe('2026-01-01');
+   });
+
+   test('should load graph from file', async () => {
+     kg.addEntity('player1', 'player', { name: 'Alice' });
+     kg.addEntity('player2', 'player');
+     kg.addRelation('player1', 'player2', 'FRIEND');
+
+     await kg.save(testFilePath);
+
+     const kg2 = new KnowledgeGraph();
+     const loaded = await kg2.load(testFilePath);
+     expect(loaded).toBe(true);
+
+     const entity = kg2.getEntity('player1');
+     expect(entity).not.toBeNull();
+     expect(entity.type).toBe('player');
+     expect(entity.properties.name).toBe('Alice');
+
+     const neighbors = kg2.getNeighbors('player1', 'FRIEND');
+     expect(neighbors.length).toBe(1);
+     expect(neighbors[0].id).toBe('player2');
+   });
+
+   test('should return false when loading nonexistent file', async () => {
+     const kg2 = new KnowledgeGraph();
+     const result = await kg2.load('/nonexistent/path/file.json');
+     expect(result).toBe(false);
+     expect(kg2.graph.order).toBe(0);
+   });
+
+   test('should clear existing graph on load', async () => {
+     kg.addEntity('existing', 'player');
+     await kg.save(testFilePath);
+
+     const kg2 = new KnowledgeGraph();
+     kg2.addEntity('other', 'location');
+     expect(kg2.graph.order).toBe(1);
+
+     await kg2.load(testFilePath);
+     expect(kg2.graph.hasNode('other')).toBe(false);
+     expect(kg2.graph.hasNode('existing')).toBe(true);
+   });
+
+   test('should restore stats on load', async () => {
+     kg.addEntity('player1', 'player');
+     kg.addEntity('player2', 'player');
+     kg.addRelation('player1', 'player2', 'FRIEND');
+
+     await kg.save(testFilePath);
+
+     const kg2 = new KnowledgeGraph();
+     await kg2.load(testFilePath);
+
+     const stats = kg2.getStats();
+     expect(stats.entitiesAdded).toBe(2);
+     expect(stats.relationsAdded).toBe(1);
+   });
+
+   test('should save to default path', async () => {
+     kg.addEntity('test', 'player');
+     await kg.save();
+   });
+
+   test('should load from default path', async () => {
+     kg.addEntity('test', 'player');
+     await kg.save();
+
+     const kg2 = new KnowledgeGraph();
+     const result = await kg2.load();
+     expect(result).toBe(true);
+     expect(kg2.getEntity('test').type).toBe('player');
+   });
+ });
 });

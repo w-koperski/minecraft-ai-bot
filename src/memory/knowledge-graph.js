@@ -396,23 +396,159 @@ class KnowledgeGraph {
     };
   }
 
-  /**
-   * Clear all data
-   */
-  clear() {
-    this.graph = new Graph({ type: 'directed' });
-    this.accessOrder.clear();
-    this.stats = {
-      entitiesAdded: 0,
-      relationsAdded: 0,
-      nodesEvicted: 0,
-      queriesRun: 0
-    };
-    logger.debug('KnowledgeGraph cleared');
-  }
+/**
+ * Clear all data
+ */
+ clear() {
+   this.graph = new Graph({ type: 'directed' });
+   this.accessOrder.clear();
+   this.stats = {
+     entitiesAdded: 0,
+     relationsAdded: 0,
+     nodesEvicted: 0,
+     queriesRun: 0
+   };
+   logger.debug('KnowledgeGraph cleared');
+ }
 
-  // ============================================
-  // Memory Type Methods (Task 10)
+ // ============================================
+ // Persistence Methods
+ // ============================================
+
+ /**
+  * Save graph to JSON file
+  * @param {string} filePath - Optional custom file path
+  * @returns {Promise<boolean>} - Success status
+  */
+ async save(filePath = null) {
+   const fs = require('fs').promises;
+   const path = require('path');
+   const targetPath = filePath || path.join(process.cwd(), 'state', 'knowledge-graph.json');
+
+   try {
+     // Ensure state directory exists
+     const stateDir = path.dirname(targetPath);
+     await fs.mkdir(stateDir, { recursive: true });
+
+     // Serialize nodes
+     const nodes = [];
+     this.graph.forEachNode((nodeId, attrs) => {
+       nodes.push({ id: nodeId, ...attrs });
+     });
+
+     // Serialize edges
+     const edges = [];
+     this.graph.forEachEdge((edge, attrs, source, target) => {
+       edges.push({ key: edge, source, target, ...attrs });
+     });
+
+     const data = {
+       version: 1,
+       savedAt: Date.now(),
+       nodes,
+       edges,
+       stats: this.stats,
+       accessOrder: Array.from(this.accessOrder.entries())
+     };
+
+     await fs.writeFile(targetPath, JSON.stringify(data, null, 2), 'utf8');
+     logger.debug('KnowledgeGraph saved', { nodeCount: nodes.length, edgeCount: edges.length });
+     return true;
+   } catch (error) {
+     logger.error('Failed to save KnowledgeGraph', { error: error.message });
+     return false;
+   }
+ }
+
+ /**
+  * Load graph from JSON file
+  * @param {string} filePath - Optional custom file path
+  * @returns {Promise<boolean>} - Success status
+  */
+ async load(filePath = null) {
+   const fs = require('fs').promises;
+   const path = require('path');
+   const targetPath = filePath || path.join(process.cwd(), 'state', 'knowledge-graph.json');
+
+   try {
+     // Check if file exists
+     await fs.access(targetPath);
+
+     // Read and parse file
+     const content = await fs.readFile(targetPath, 'utf8');
+     const data = JSON.parse(content);
+
+     // Validate version
+     if (!data.version || data.version !== 1) {
+       logger.warn('Unknown knowledge-graph file version, starting fresh', { version: data.version });
+       return false;
+     }
+
+     // Clear existing graph
+     this.graph = new Graph({ type: 'directed' });
+     this.accessOrder.clear();
+
+     // Restore nodes
+     if (data.nodes && Array.isArray(data.nodes)) {
+       for (const node of data.nodes) {
+         const { id, ...attrs } = node;
+         if (id) {
+           this.graph.addNode(id, attrs);
+         }
+       }
+     }
+
+     // Restore edges
+     if (data.edges && Array.isArray(data.edges)) {
+       for (const edge of data.edges) {
+         const { key, source, target, ...attrs } = edge;
+         if (source && target) {
+           try {
+             // Use the original key if provided, otherwise let graphology generate one
+             if (key && !this.graph.hasEdge(key)) {
+               this.graph.addEdge(key, source, target, attrs);
+             } else {
+               this.graph.addEdge(source, target, attrs);
+             }
+           } catch (e) {
+             // Edge might already exist or nodes missing, skip
+             logger.debug('Skipping edge during load', { source, target, error: e.message });
+           }
+         }
+       }
+     }
+
+     // Restore stats
+     if (data.stats) {
+       this.stats = { ...this.stats, ...data.stats };
+     }
+
+     // Restore access order
+     if (data.accessOrder && Array.isArray(data.accessOrder)) {
+       for (const [nodeId, timestamp] of data.accessOrder) {
+         if (this.graph.hasNode(nodeId)) {
+           this.accessOrder.set(nodeId, timestamp);
+         }
+       }
+     }
+
+     logger.debug('KnowledgeGraph loaded', {
+       nodeCount: this.graph.order,
+       edgeCount: this.graph.size
+     });
+     return true;
+   } catch (error) {
+     if (error.code === 'ENOENT') {
+       logger.debug('No existing knowledge-graph file, starting fresh');
+       return false;
+     }
+     logger.error('Failed to load KnowledgeGraph', { error: error.message });
+     return false;
+   }
+ }
+
+ // ============================================
+ // Memory Type Methods (Task 10)
   // ============================================
 
   /**
@@ -740,12 +876,16 @@ class KnowledgeGraph {
       }
     }
 
-    if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
-      logger.info('Memory consolidation complete', stats);
-    }
+if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+     logger.info('Memory consolidation complete', stats);
+   }
 
-    return stats;
-  }
+   if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
+     this.save().catch(err => logger.error('Auto-save failed after consolidation', { error: err.message }));
+   }
+
+   return stats;
+ }
 
   /**
    * Get memory tier statistics
