@@ -30,6 +30,7 @@ const Pilot = require('./layers/pilot');
 const Strategy = require('./layers/strategy');
 const Commander = require('./layers/commander');
 const KnowledgeGraph = require('./memory/knowledge-graph');
+const ReflectionModule = require('./learning/reflection-module');
 
 // Track shutdown state
 let isShuttingDown = false;
@@ -39,6 +40,7 @@ let strategy = null;
 let commander = null;
 let knowledgeGraph = null;
 let consolidationTimer = null;
+let reflectionTimer = null;
 
 /**
  * Create and configure bot instance
@@ -160,6 +162,10 @@ bot.on('end', (reason) => {
     clearInterval(consolidationTimer);
     consolidationTimer = null;
   }
+  if (reflectionTimer) {
+    clearInterval(reflectionTimer);
+    reflectionTimer = null;
+  }
 });
 }
 
@@ -214,25 +220,44 @@ logger.info('All AI layers running', {
   layers: ['pilot', 'strategy', 'commander']
 });
 
-  knowledgeGraph = new KnowledgeGraph();
+knowledgeGraph = new KnowledgeGraph();
 
-  const consolidationInterval = parseInt(process.env.KG_CONSOLIDATION_INTERVAL_MS) || 600000;
-  if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
-    logger.info('Starting memory consolidation timer', { intervalMs: consolidationInterval });
+const consolidationInterval = parseInt(process.env.KG_CONSOLIDATION_INTERVAL_MS) || 600000;
+if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
+  logger.info('Starting memory consolidation timer', { intervalMs: consolidationInterval });
 
-    consolidationTimer = setInterval(async () => {
-      setImmediate(async () => {
-        try {
-          const stats = await knowledgeGraph.consolidate();
-          if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
-            logger.info('Memory consolidated', stats);
-          }
-        } catch (error) {
-          logger.error('Memory consolidation failed', { error: error.message });
+  consolidationTimer = setInterval(async () => {
+    setImmediate(async () => {
+      try {
+        const stats = await knowledgeGraph.consolidate();
+        if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+          logger.info('Memory consolidated', stats);
         }
-      });
-    }, consolidationInterval);
-  }
+      } catch (error) {
+        logger.error('Memory consolidation failed', { error: error.message });
+      }
+    });
+  }, consolidationInterval);
+}
+
+// Initialize ReflectionModule for performance analysis
+const actionAwareness = pilot.actionAwareness;
+if (actionAwareness) {
+  const reflectionModule = new ReflectionModule(actionAwareness, knowledgeGraph);
+  const reflectionInterval = parseInt(process.env.REFLECTION_INTERVAL_MS) || 30 * 60 * 1000; // 30 minutes
+  
+  logger.info('Starting reflection timer', { intervalMs: reflectionInterval });
+  
+  reflectionTimer = setInterval(() => {
+    setImmediate(() => {
+      try {
+        reflectionModule.reflect();
+      } catch (error) {
+        logger.error('Reflection failed', { error: error.message });
+      }
+    });
+  }, reflectionInterval);
+}
 }
 
 /**
