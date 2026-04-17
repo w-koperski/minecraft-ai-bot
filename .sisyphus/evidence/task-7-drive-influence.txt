@@ -1,0 +1,34 @@
+=== Task 7 Evidence: Drive Scores Influence Goal Ranking ===
+Date: 2026-04-17 (updated)
+
+QA Scenario: Drive scores influence goal ranking
+
+Preconditions:
+- GoalScorer initialized
+- 2 goals: exploration goal, resources/gathering goal
+
+Steps:
+1. Score both goals with driveScores: {curiosity: 90, survival: 30, competence: 20, social: 10, goalOriented: 50}
+2. Assert explore goal score > gather goal score
+
+Results:
+- Explore goal (category: exploration) score: 0.68
+- Gather goal (category: resources) score: 0.54
+- Explore > Gather: true
+
+Expected Result: High curiosity drive boosts exploration goals
+ACTUAL: PASS - Exploration goal (0.68) scored higher than gathering goal (0.54) when curiosity drive is 90
+
+Drive mapping used:
+- exploration → curiosity
+- resources/gathering → competence
+- survival/combat → survival
+- social → social
+- building/general → goalOriented
+
+The 20% drive weight is properly applied:
+- Base importance score: 0.5 (importance 5/10)
+- With curiosity drive 90/100 → normalized 0.9, weighted at 20% → adds 0.18
+- Final explore score: 0.5 + 0.18 = 0.68
+
+CONCLUSION: Drive scores correctly influence goal scoring when provided.

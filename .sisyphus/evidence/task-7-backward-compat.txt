@@ -1,0 +1,50 @@
+=== Task 7 Evidence: Backward Compatibility Without Drives ===
+Date: 2026-04-17 (updated)
+
+QA Scenario: Backward compatibility without drives
+
+Preconditions:
+- GoalScorer initialized
+
+Steps:
+1. Call scoreGoal(goal, {}) without driveScores
+2. Assert no error, score returned
+
+Test 1: Empty context object
+- Input: scoreGoal({name: 'explore', category: 'exploration', importance: 5}, {})
+- Result: 0.5
+- Type: number
+- Valid range (0-1): true
+- STATUS: PASS
+
+Test 2: Null driveScores
+- Input: scoreGoal(goal, { driveScores: null })
+- Result: 0.5
+- STATUS: PASS
+
+Test 3: Undefined driveScores
+- Input: scoreGoal(goal, { driveScores: undefined })
+- Result: 0.5
+- STATUS: PASS
+
+The _getDriveBonus method handles missing driveScores gracefully:
+```javascript
+_getDriveBonus(goal, context = {}) {
+  const driveScores = context.driveScores;
+  if (!driveScores || typeof driveScores !== 'object') return 0;
+  // ... drive scoring logic
+}
+```
+
+When driveScores is null, undefined, or missing, the method returns 0,
+and the score calculation continues without the drive bonus:
+```javascript
+score += driveBonus * 0.2;  // 0 * 0.2 = 0
+```
+
+CONCLUSION: GoalScorer works correctly without drive scores - backward compatible.
+
+Unit Test Results:
+PASS tests/unit/goal-scorer.test.js
+Test Suites: 25 passed, 25 total
+Tests: 753 passed, 6 skipped, 759 total

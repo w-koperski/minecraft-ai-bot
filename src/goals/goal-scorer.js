@@ -19,11 +19,52 @@ class GoalScorer {
     const eventsBonus = this._getEventsBonus(goal, context);
     score += eventsBonus * 0.25;
 
+    // Drive factor (20%)
+    const driveBonus = this._getDriveBonus(goal, context);
+    score += driveBonus * 0.2;
+
     // Danger penalty (20%)
     const dangerPenalty = this._getDangerPenalty(goal, context);
     score -= dangerPenalty * 0.2;
 
     return Math.max(0, Math.min(1, score));
+  }
+
+  /**
+   * Get drive bonus based on goal category and matching drive score
+   * Maps goal types to drives:
+   * - exploration → curiosity
+   * - survival/combat → survival
+   * - resources/gathering → competence
+   * - social → social
+   * - general → goalOriented
+   * @param {object} goal - Goal object with category
+   * @param {object} context - Context with driveScores
+   * @returns {number} Drive bonus (0-1)
+   */
+  _getDriveBonus(goal, context = {}) {
+    const driveScores = context.driveScores;
+    if (!driveScores || typeof driveScores !== 'object') return 0;
+
+    const category = goal.category || 'general';
+
+    // Map goal category to drive name
+    const categoryToDrive = {
+      exploration: 'curiosity',
+      survival: 'survival',
+      combat: 'survival',
+      resources: 'competence',
+      gathering: 'competence',
+      social: 'social',
+      building: 'goalOriented',
+      general: 'goalOriented'
+    };
+
+    const driveName = categoryToDrive[category] || 'goalOriented';
+    const driveScore = driveScores[driveName] || 0;
+
+    // Normalize from 0-100 to 0-1
+    return Math.max(0, Math.min(1, driveScore / 100));
   }
 
   _getPersonalityBonus(goal, personality) {
