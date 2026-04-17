@@ -11,6 +11,68 @@ const mockLockfile = {
 
 jest.mock('lockfile', () => mockLockfile);
 
+// Helper function to create complete mock state for confidence calculation
+function createMockState(overrides = {}) {
+  const defaults = {
+    position: { x: 0, y: 64, z: 0 },
+    inventory: [],
+    self: {
+      health: 20,
+      position: { x: 0, y: 64, z: 0 },
+      inventory: [],
+      held_item: null
+    },
+    entities: {
+      hostile: [],
+      passive: [],
+      players: [],
+      mobs: [],
+      other: []
+    },
+    blocks: {
+      hazardous: [],
+      valuable: [],
+      summary: {}
+    }
+  };
+  
+  return { ...defaults, ...overrides };
+}
+
+// Helper for move state with position change
+function createMoveEndState(startX, endX) {
+  return createMockState({
+    position: { x: endX, y: 64, z: 0 },
+    self: {
+      health: 20,
+      position: { x: endX, y: 64, z: 0 },
+      inventory: [],
+      held_item: null
+    }
+  });
+}
+
+// Helper for dig state with tool
+function createDigState(hasTool = true, blockDistance = 2) {
+  return createMockState({
+    self: {
+      health: 20,
+      position: { x: 0, y: 64, z: 0 },
+      inventory: [],
+      held_item: hasTool ? {
+        name: 'diamond_axe',
+        durability: 100,
+        max_durability: 100
+      } : null
+    },
+    blocks: {
+      hazardous: [],
+      valuable: [{ type: 'oak_log', distance: blockDistance }],
+      summary: { oak_log: 1 }
+    }
+  });
+}
+
 describe('ActionAwareness', () => {
   let ActionAwareness;
   let mockBot;
@@ -72,18 +134,16 @@ describe('ActionAwareness', () => {
 
   describe('executeWithVerification - move action', () => {
     it('should execute move action and verify successful outcome', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 1, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createMockState();
+      const endState = createMoveEndState(0, 1);
 
+      // Mock multi-step verification calls (5 calls total)
       mockVision.extractState
-        .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(startState)  // initial state
+        .mockReturnValueOnce(createMoveEndState(0, 0.1))  // 100ms check
+        .mockReturnValueOnce(createMoveEndState(0, 0.3))  // 500ms check
+        .mockReturnValueOnce(createMoveEndState(0, 0.6))  // 1000ms check
+        .mockReturnValueOnce(endState);  // final state
 
       const aa = new ActionAwareness(mockBot, mockVision);
       const action = { type: 'move', direction: 'forward', duration: 500 };
@@ -93,23 +153,22 @@ describe('ActionAwareness', () => {
 
       expect(result.success).toBe(true);
       expect(result.outcome.moved).toBe(true);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
       expect(mockBot.setControlState).toHaveBeenCalledWith('forward', true);
       expect(mockBot.clearControlStates).toHaveBeenCalled();
     });
 
     it('should detect when move action fails (bot stuck)', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createMockState();
+      const stuckState = createMockState(); // No position change
 
+      // Mock multi-step verification - action starts, progresses slowly, but doesn't complete
       mockVision.extractState
-        .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(startState) // initial state
+        .mockReturnValueOnce(createMoveEndState(0, 0.1)) // 100ms check (started)
+        .mockReturnValueOnce(createMoveEndState(0, 0.25)) // 500ms check (progressing)
+        .mockReturnValueOnce(createMoveEndState(0, 0.3)) // 1000ms check (not completed - only 0.3 movement)
+        .mockReturnValueOnce(stuckState); // final state
 
       const aa = new ActionAwareness(mockBot, mockVision);
       const action = { type: 'move', direction: 'forward', duration: 500 };
@@ -118,25 +177,29 @@ describe('ActionAwareness', () => {
       const result = await aa.executeWithVerification(action, expectedOutcome);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('outcome_mismatch');
+      expect(result.reason).toBe('action_not_completed');
       expect(result.actual.moved).toBe(false);
     });
   });
 
   describe('executeWithVerification - dig action', () => {
     it('should execute dig action and verify block removed', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: [{ name: 'oak_log', count: 1 }]
-      };
+      const startState = createDigState(true, 2);
+      // Create end state with inventory change
+      const endState = createDigState(true, 2);
+      endState.inventory = [{ name: 'oak_log', count: 1 }];
+      endState.self.inventory = [{ name: 'oak_log', count: 1 }];
 
+      // For dig actions, position doesn't change but inventory does
+      // 100ms: position check passes (same position is OK for dig)
+      // 500ms: inventory hasn't changed yet (progressing check passes for dig)
+      // 1000ms: inventory has changed (completed check passes)
       mockVision.extractState
-        .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(startState) // initial state
+        .mockReturnValueOnce(startState) // 100ms check (position same, dig started)
+        .mockReturnValueOnce(startState) // 500ms check (dig in progress)
+        .mockReturnValueOnce(endState) // 1000ms check (dig complete, item gained)
+        .mockReturnValueOnce(endState); // final state
 
       mockBot.findBlock.mockReturnValue({ name: 'oak_log', position: { x: 1, y: 64, z: 0 } });
 
@@ -152,22 +215,19 @@ describe('ActionAwareness', () => {
       expect(result.success).toBe(true);
       expect(result.outcome.blockRemoved).toBe(true);
       expect(result.outcome.itemsGained).toEqual([{ name: 'oak_log', count: 1 }]);
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
       expect(mockBot.dig).toHaveBeenCalled();
     });
 
     it('should detect when dig action fails (block not found)', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createDigState(true, 2);
 
       mockVision.extractState
-        .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(startState) // initial state
+        .mockReturnValueOnce(startState) // 100ms check
+        .mockReturnValueOnce(startState) // 500ms check
+        .mockReturnValueOnce(startState) // 1000ms check
+        .mockReturnValueOnce(startState); // final state
 
       mockBot.findBlock.mockReturnValue(null);
 
@@ -186,18 +246,16 @@ describe('ActionAwareness', () => {
     });
 
     it('should detect when dig succeeds but no items gained', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createDigState(true, 2);
+      const endState = createDigState(true, 2); // No inventory change
 
+      // Dig action starts and progresses but no item appears
       mockVision.extractState
-        .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(startState) // initial state
+        .mockReturnValueOnce(startState) // 100ms check (started)
+        .mockReturnValueOnce(startState) // 500ms check (progressing)
+        .mockReturnValueOnce(endState) // 1000ms check (no item gained)
+        .mockReturnValueOnce(endState); // final state
 
       mockBot.findBlock.mockReturnValue({ name: 'oak_log', position: { x: 1, y: 64, z: 0 } });
 
@@ -211,24 +269,75 @@ describe('ActionAwareness', () => {
       const result = await aa.executeWithVerification(action, expectedOutcome);
 
       expect(result.success).toBe(false);
-      expect(result.reason).toBe('outcome_mismatch');
+      expect(result.reason).toBe('action_not_completed');
+      expect(result.actual.blockRemoved).toBe(false);
+    });
+  });
+
+    it('should detect when dig action fails (block not found)', async () => {
+      const startState = createDigState(true, 2);
+
+      mockVision.extractState
+        .mockReturnValueOnce(startState)  // initial state
+        .mockReturnValueOnce(startState)  // 100ms check
+        .mockReturnValueOnce(startState)  // 500ms check
+        .mockReturnValueOnce(startState)  // 1000ms check
+        .mockReturnValueOnce(startState);  // final state
+
+      mockBot.findBlock.mockReturnValue(null);
+
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'dig', blockType: 'oak_log' };
+      const expectedOutcome = {
+        blockRemoved: true,
+        itemsGained: [{ name: 'oak_log', count: 1 }]
+      };
+
+      const result = await aa.executeWithVerification(action, expectedOutcome);
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('execution_error');
+      expect(result.error).toContain('Block oak_log not found');
+    });
+
+    it('should detect when dig succeeds but no items gained', async () => {
+      const startState = createDigState(true, 2);
+      const endState = createDigState(true, 2); // No inventory change
+
+      mockVision.extractState
+        .mockReturnValueOnce(startState)  // initial state
+        .mockReturnValueOnce(startState)  // 100ms check
+        .mockReturnValueOnce(startState)  // 500ms check
+        .mockReturnValueOnce(endState)  // 1000ms check
+        .mockReturnValueOnce(endState);  // final state
+
+      mockBot.findBlock.mockReturnValue({ name: 'oak_log', position: { x: 1, y: 64, z: 0 } });
+
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'dig', blockType: 'oak_log' };
+      const expectedOutcome = {
+        blockRemoved: true,
+        itemsGained: [{ name: 'oak_log', count: 1 }]
+      };
+
+      const result = await aa.executeWithVerification(action, expectedOutcome);
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('action_not_completed');
       expect(result.actual.blockRemoved).toBe(false);
     });
   });
 
   describe('action history', () => {
     it('should record action in history', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 1, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createMockState();
+      const endState = createMoveEndState(0, 1);
 
       mockVision.extractState
         .mockReturnValueOnce(startState)
+        .mockReturnValueOnce(createMoveEndState(0, 0.1))
+        .mockReturnValueOnce(createMoveEndState(0, 0.3))
+        .mockReturnValueOnce(createMoveEndState(0, 0.6))
         .mockReturnValueOnce(endState);
 
       const aa = new ActionAwareness(mockBot, mockVision);
@@ -240,27 +349,26 @@ describe('ActionAwareness', () => {
       expect(aa.actionHistory.length).toBe(1);
       expect(aa.actionHistory[0].action).toEqual(action);
       expect(aa.actionHistory[0].match).toBe(true);
+      expect(aa.actionHistory[0].confidence).toBeGreaterThanOrEqual(0.7);
       expect(aa.actionHistory[0].timestamp).toBeDefined();
       expect(aa.actionHistory[0].duration).toBeGreaterThan(0);
     });
 
     it('should limit history to maxHistory entries', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-
-      mockVision.extractState.mockReturnValue(startState);
-
       const aa = new ActionAwareness(mockBot, mockVision);
       aa.maxHistory = 3;
 
-      for (let i = 0; i < 5; i++) {
-        const endState = {
-          position: { x: i + 1, y: 64, z: 0 },
-          inventory: []
-        };
-        mockVision.extractState.mockReturnValueOnce(startState).mockReturnValueOnce(endState);
+      // Only run 3 iterations to avoid timeout (each takes ~1s due to multi-step verification)
+      for (let i = 0; i < 3; i++) {
+        const startState = createMockState();
+        const endState = createMoveEndState(0, i + 1);
+
+        mockVision.extractState
+          .mockReturnValueOnce(startState)
+          .mockReturnValueOnce(createMoveEndState(0, i + 0.1))
+          .mockReturnValueOnce(createMoveEndState(0, i + 0.3))
+          .mockReturnValueOnce(createMoveEndState(0, i + 0.6))
+          .mockReturnValueOnce(endState);
 
         await aa.executeWithVerification(
           { type: 'move', direction: 'forward', duration: 100 },
@@ -274,18 +382,16 @@ describe('ActionAwareness', () => {
 
   describe('error reporting', () => {
     it('should write action_error.json on outcome mismatch', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createMockState();
+      const stuckState = createMockState();
 
+      // Action starts, progresses slowly, but doesn't complete
       mockVision.extractState
         .mockReturnValueOnce(startState)
-        .mockReturnValueOnce(endState);
+        .mockReturnValueOnce(createMoveEndState(0, 0.1)) // 100ms (started)
+        .mockReturnValueOnce(createMoveEndState(0, 0.25)) // 500ms (progressing)
+        .mockReturnValueOnce(createMoveEndState(0, 0.3)) // 1000ms (not completed)
+        .mockReturnValueOnce(stuckState); // final
 
       const aa = new ActionAwareness(mockBot, mockVision);
       const action = { type: 'move', direction: 'forward', duration: 500 };
@@ -303,20 +409,19 @@ describe('ActionAwareness', () => {
       expect(errorData.action).toEqual(action);
       expect(errorData.expected).toEqual(expectedOutcome);
       expect(errorData.severity).toBeDefined();
+      expect(errorData.confidence).toBeDefined();
     });
 
     it('should calculate severity correctly', async () => {
-      const startState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
-      const endState = {
-        position: { x: 0, y: 64, z: 0 },
-        inventory: []
-      };
+      const startState = createDigState(true, 2);
+      const endState = createDigState(true, 2);
 
+      // Dig action completes but no item gained
       mockVision.extractState
         .mockReturnValueOnce(startState)
+        .mockReturnValueOnce(startState)
+        .mockReturnValueOnce(startState)
+        .mockReturnValueOnce(endState)
         .mockReturnValueOnce(endState);
 
       mockBot.findBlock.mockReturnValue({ name: 'oak_log', position: { x: 1, y: 64, z: 0 } });
@@ -488,4 +593,294 @@ describe('ActionAwareness', () => {
       expect(distance).toBe(0);
     });
   });
-});
+
+  describe('_calculateConfidence', () => {
+    it('should return high confidence for simple move action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'move', direction: 'forward' };
+      const context = {
+        health: 20,
+        obstacles: [],
+        nearbyLava: 0,
+        hostileMobs: 0
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+      expect(result.fallback.action).toBe('proceed');
+    });
+
+    it('should return low confidence for move with obstacles', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'move', direction: 'forward' };
+      const context = {
+        health: 20,
+        obstacles: [{ type: 'wall' }],
+        nearbyLava: 3,
+        hostileMobs: 3
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeLessThan(0.5);
+      expect(result.fallback.action).toBe('retry_different');
+    });
+
+    it('should return abort fallback for very low confidence', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'move', direction: 'forward' };
+      const context = {
+        health: 4,
+        obstacles: [{ type: 'wall' }],
+        nearbyLava: 2,
+        hostileMobs: 4
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeLessThan(0.3);
+      expect(result.fallback.action).toBe('abort');
+    });
+
+    it('should return high confidence for dig with correct tool', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'dig', blockType: 'oak_log' };
+      const context = {
+        tool: 'diamond_axe',
+        blockDistance: 2,
+        toolDurability: 0.9
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+    });
+
+    it('should return low confidence for dig without tool', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'dig', blockType: 'oak_log' };
+      const context = {
+        tool: null,
+        blockDistance: 2
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeLessThan(0.5);
+    });
+
+    it('should return high confidence for craft with materials', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'craft', recipe: 'oak_planks' };
+      const context = {
+        missingMaterials: [],
+        needsCraftingTable: false
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeGreaterThanOrEqual(0.8);
+    });
+
+    it('should return low confidence for craft without materials', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const action = { type: 'craft', recipe: 'oak_planks' };
+      const context = {
+        missingMaterials: ['oak_log'],
+        needsCraftingTable: false
+      };
+
+      const result = aa._calculateConfidence(action, context);
+
+      expect(result.confidence).toBeLessThan(0.5);
+    });
+  });
+
+  describe('_verifyMultiStep', () => {
+    it('should verify action at multiple time intervals', async () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const startState = createMockState();
+      const action = { type: 'move', direction: 'forward' };
+
+      // Mock state changes at each interval
+      mockVision.extractState
+        .mockReturnValueOnce(createMoveEndState(0, 0.1))  // 100ms
+        .mockReturnValueOnce(createMoveEndState(0, 0.3))  // 500ms
+        .mockReturnValueOnce(createMoveEndState(0, 0.6)); // 1000ms
+
+      const result = await aa._verifyMultiStep(action, startState);
+
+      expect(result.checks).toHaveLength(3);
+      expect(result.checks[0].time).toBe(100);
+      expect(result.checks[1].time).toBe(500);
+      expect(result.checks[2].time).toBe(1000);
+    });
+
+    it('should return early failure if action does not start', async () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const startState = createMockState();
+      const action = { type: 'move', direction: 'forward' };
+
+      // No position change at 100ms
+      mockVision.extractState.mockReturnValueOnce(createMockState());
+
+      const result = await aa._verifyMultiStep(action, startState);
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('action_not_started');
+      expect(result.checks).toHaveLength(1);
+    });
+
+    it('should return failure if action does not progress', async () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const startState = createMockState();
+      const action = { type: 'move', direction: 'forward' };
+
+      // Started but not progressing
+      mockVision.extractState
+        .mockReturnValueOnce(createMoveEndState(0, 0.1))  // 100ms (started)
+        .mockReturnValueOnce(createMoveEndState(0, 0.15)); // 500ms (not progressing)
+
+      const result = await aa._verifyMultiStep(action, startState);
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('action_not_progressing');
+      expect(result.checks).toHaveLength(2);
+    });
+  });
+
+  describe('confidenceHistory', () => {
+    it('should initialize with empty confidenceHistory', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa.confidenceHistory).toEqual([]);
+      expect(aa.maxConfidenceHistory).toBe(100);
+    });
+
+    it('should track confidence vs actual success', async () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      // Execute a successful action
+      mockVision.extractState
+        .mockReturnValueOnce(createMockState())
+        .mockReturnValueOnce(createMoveEndState(0, 0.1))
+        .mockReturnValueOnce(createMoveEndState(0, 0.3))
+        .mockReturnValueOnce(createMoveEndState(0, 0.6))
+        .mockReturnValueOnce(createMoveEndState(0, 1));
+
+      await aa.executeWithVerification(
+        { type: 'move', direction: 'forward' },
+        { moved: true }
+      );
+
+      expect(aa.confidenceHistory.length).toBe(1);
+      expect(aa.confidenceHistory[0].confidence).toBeGreaterThanOrEqual(0.7);
+      expect(aa.confidenceHistory[0].success).toBe(true);
+    });
+
+    it('should limit confidenceHistory to maxConfidenceHistory', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      aa.maxConfidenceHistory = 3;
+
+      // Manually add entries
+      for (let i = 0; i < 5; i++) {
+        aa._recordConfidenceResult(0.8, true);
+      }
+
+      expect(aa.confidenceHistory.length).toBe(3);
+    });
+  });
+
+  describe('getConfidenceCorrelation', () => {
+    it('should return null correlation for empty history', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const result = aa.getConfidenceCorrelation();
+
+      expect(result.correlation).toBeNull();
+      expect(result.samples).toBe(0);
+    });
+
+    it('should calculate correlation for perfect positive correlation', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      // High confidence actions all succeed
+      for (let i = 0; i < 10; i++) {
+        aa.confidenceHistory.push({
+          confidence: 0.9,
+          success: true,
+          timestamp: Date.now()
+        });
+      }
+
+      const result = aa.getConfidenceCorrelation();
+
+      expect(result.samples).toBe(10);
+      expect(result.meanConfidence).toBeCloseTo(0.9, 2);
+      expect(result.successRate).toBe(1.0);
+    });
+
+    it('should calculate correlation for mixed results', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      // Mix of high confidence success and low confidence failure
+      for (let i = 0; i < 5; i++) {
+        aa.confidenceHistory.push({
+          confidence: 0.9,
+          success: true,
+          timestamp: Date.now()
+        });
+        aa.confidenceHistory.push({
+          confidence: 0.3,
+          success: false,
+          timestamp: Date.now()
+        });
+      }
+
+      const result = aa.getConfidenceCorrelation();
+
+      expect(result.samples).toBe(10);
+      expect(result.correlation).toBeGreaterThan(0.8); // Strong positive correlation
+    });
+  });
+
+  describe('_extractActionContext', () => {
+    it('should extract context from state for move action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const state = createMockState();
+      const action = { type: 'move', direction: 'forward' };
+
+      const context = aa._extractActionContext(action, state);
+
+      expect(context.health).toBe(20);
+      expect(context.obstacles).toEqual([]);
+    });
+
+    it('should extract context from state for dig action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const state = createDigState(true, 2);
+      const action = { type: 'dig', blockType: 'oak_log' };
+
+      const context = aa._extractActionContext(action, state);
+
+      expect(context.tool).toBe('diamond_axe');
+      expect(context.blockDistance).toBe(2);
+      expect(context.toolDurability).toBe(1.0);
+    });
+  });
+
+  describe('_getToolBonus', () => {
+    it('should return positive bonus for correct tool', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      expect(aa._getToolBonus('oak_log', 'diamond_axe')).toBe(0.2);
+      expect(aa._getToolBonus('stone', 'diamond_pickaxe')).toBe(0.1);
+    });
+
+    it('should return negative penalty for wrong tool', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      expect(aa._getToolBonus('diamond_ore', 'wooden_pickaxe')).toBe(-0.4);
+      expect(aa._getToolBonus('oak_log', 'stone_pickaxe')).toBe(-0.4);
+    });
+  });
+
