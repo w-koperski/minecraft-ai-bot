@@ -74,6 +74,12 @@ class ActionAwareness {
           verificationChecks: verification.checks
         });
 
+        // Detect failure pattern
+        const pattern = this.detectFailurePattern();
+        if (pattern) {
+          logger.warn('Failure pattern detected', { pattern });
+        }
+
         await this.stateManager.write('action_error', {
           action,
           expected: expectedOutcome,
@@ -81,7 +87,8 @@ class ActionAwareness {
           confidence,
           verificationChecks: verification.checks,
           timestamp: Date.now(),
-          severity: this._calculateSeverity(expectedOutcome, actualOutcome)
+          severity: this._calculateSeverity(expectedOutcome, actualOutcome),
+          pattern: pattern || undefined
         });
 
         return { 
@@ -89,7 +96,8 @@ class ActionAwareness {
           reason: verification.reason || 'outcome_mismatch', 
           actual: actualOutcome,
           confidence,
-          verificationChecks: verification.checks
+          verificationChecks: verification.checks,
+          pattern: pattern || undefined
         };
       }
 
@@ -616,6 +624,223 @@ class ActionAwareness {
     return this.actionHistory
       .filter(a => !a.match)
       .slice(-limit);
+  }
+
+  /**
+   * Detect failure patterns from recent action history
+   * Analyzes last 10 actions for consecutive failures of same type
+   * @returns {Object|null} Pattern object if detected, null otherwise
+   */
+  detectFailurePattern() {
+    const recentActions = this.actionHistory.slice(-10);
+    if (recentActions.length < 3) return null;
+
+    // Group failures by action type and parameters
+    const failureGroups = new Map();
+
+    for (const entry of recentActions) {
+      if (entry.match) continue; // Skip successful actions
+
+      const key = this._getActionKey(entry.action);
+      if (!failureGroups.has(key)) {
+        failureGroups.set(key, []);
+      }
+      failureGroups.get(key).push(entry);
+    }
+
+    // Check for patterns (3+ consecutive failures of same type)
+    for (const [key, failures] of failureGroups) {
+      if (failures.length >= 3) {
+        // Check if failures are consecutive (no successes in between)
+        const sortedFailures = failures.sort((a, b) => a.timestamp - b.timestamp);
+        let consecutive = true;
+        let maxGap = 0;
+
+        for (let i = 1; i < sortedFailures.length; i++) {
+          const gap = sortedFailures[i].timestamp - sortedFailures[i - 1].timestamp;
+          // If gap > 60 seconds, not considered consecutive
+          if (gap > 60000) {
+            consecutive = false;
+            break;
+          }
+          maxGap = Math.max(maxGap, gap);
+        }
+
+        if (consecutive || failures.length >= 3) {
+          const pattern = this.categorizeFailure(
+            failures[0].action,
+            failures[0].actual
+          );
+
+          return {
+            type: pattern.type,
+            count: failures.length,
+            action: failures[0].action,
+            suggestion: pattern.suggestion,
+            timestamp: Date.now(),
+            firstFailure: sortedFailures[0].timestamp,
+            lastFailure: sortedFailures[sortedFailures.length - 1].timestamp,
+            failures: failures.map(f => ({
+              timestamp: f.timestamp,
+              actual: f.actual
+            }))
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Categorize failure type and provide actionable suggestion
+   * @param {Object} action - The action that failed
+   * @param {Object} outcome - The actual outcome
+   * @returns {Object} { type, suggestion }
+   */
+  categorizeFailure(action, outcome) {
+    // Stuck: Same move action fails, position unchanged
+    if (action.type === 'move') {
+      if (outcome && outcome.moved === false) {
+        return {
+          type: 'stuck',
+          suggestion: 'pathfind around obstacle or use different route'
+        };
+      }
+    }
+
+    // Wrong tool: Dig action fails, blockRemoved: false
+    if (action.type === 'dig') {
+      if (outcome && outcome.blockRemoved === false) {
+        // Check if it's a tool issue
+        const requiredTool = this._getRequiredTool(action.blockType);
+        return {
+          type: 'wrong_tool',
+          suggestion: requiredTool ? `equip ${requiredTool} or find appropriate tool` : 'equip appropriate tool for this block type'
+        };
+      }
+    }
+
+    // Unreachable: Action fails, distance > threshold
+    if (action.type === 'dig' || action.type === 'place') {
+      // This would need context from the action execution
+      // For now, provide generic suggestion
+      if (outcome && outcome.blockRemoved === false) {
+        return {
+          type: 'unreachable',
+          suggestion: 'move closer to target or clear path'
+        };
+      }
+    }
+
+    // Blocked: Move action fails with obstacles present
+    if (action.type === 'move' && outcome && outcome.positionChange) {
+      const distance = Math.sqrt(
+        Math.pow(outcome.positionChange.x, 2) +
+        Math.pow(outcome.positionChange.z, 2)
+      );
+      if (distance < 0.1) {
+        return {
+          type: 'blocked',
+          suggestion: 'clear obstacle or find alternative path'
+        };
+      }
+    }
+
+    // Default: unknown failure type
+    return {
+      type: 'unknown',
+      suggestion: 'stop and reassess situation'
+    };
+  }
+
+  /**
+   * Get unique key for action based on type and parameters
+   * @param {Object} action - Action to key
+   * @returns {string} Unique key
+   */
+  _getActionKey(action) {
+    if (!action) return 'unknown';
+
+    const parts = [action.type];
+
+    if (action.type === 'move') {
+      parts.push(action.direction || 'unknown');
+    } else if (action.type === 'dig') {
+      parts.push(action.blockType || 'unknown');
+    } else if (action.type === 'craft') {
+      parts.push(action.recipe || 'unknown');
+    }
+
+    return parts.join(':');
+  }
+
+  /**
+   * Get required tool for block type
+   * @param {string} blockType - Block to mine
+   * @returns {string|null} Required tool name
+   */
+  _getRequiredTool(blockType) {
+    const toolRequirements = {
+      // Ores requiring pickaxe
+      diamond_ore: 'diamond_pickaxe',
+      deepslate_diamond_ore: 'diamond_pickaxe',
+      gold_ore: 'iron_pickaxe',
+      deepslate_gold_ore: 'iron_pickaxe',
+      iron_ore: 'stone_pickaxe',
+      deepslate_iron_ore: 'stone_pickaxe',
+      copper_ore: 'stone_pickaxe',
+      deepslate_copper_ore: 'stone_pickaxe',
+      coal_ore: 'wooden_pickaxe',
+      deepslate_coal_ore: 'wooden_pickaxe',
+
+      // Stone variants
+      stone: 'wooden_pickaxe',
+      cobblestone: 'wooden_pickaxe',
+      deepslate: 'wooden_pickaxe',
+
+      // Wood (axe preferred but not required)
+      oak_log: 'axe',
+      birch_log: 'axe',
+      spruce_log: 'axe',
+      jungle_log: 'axe',
+      acacia_log: 'axe',
+      dark_oak_log: 'axe',
+
+      // Dirt/sand (shovel preferred but not required)
+      dirt: 'shovel',
+      grass_block: 'shovel',
+      sand: 'shovel',
+      gravel: 'shovel'
+    };
+
+    return toolRequirements[blockType] || null;
+  }
+
+  /**
+   * Get failure pattern for a specific action type
+   * @param {string} actionType - Type of action (move, dig, craft, etc.)
+   * @returns {Object|null} Most recent pattern for this action type
+   */
+  getFailurePattern(actionType) {
+    const recentActions = this.actionHistory.slice(-10);
+    const failures = recentActions.filter(
+      a => !a.match && a.action && a.action.type === actionType
+    );
+
+    if (failures.length < 3) return null;
+
+    const pattern = this.categorizeFailure(
+      failures[0].action,
+      failures[0].actual
+    );
+
+    return {
+      type: pattern.type,
+      count: failures.length,
+      suggestion: pattern.suggestion,
+      lastFailure: failures[failures.length - 1].timestamp
+    };
   }
 }
 
