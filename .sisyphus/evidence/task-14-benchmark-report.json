@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "timestamp": "2026-04-17T08:39:48.140Z",
+    "projectSidBaseline": {
+      "itemsIn4Hours": 320,
+      "itemsPerHour": 80,
+      "source": "Project Sid paper (Altera.AI)"
+    },
+    "ourTargets": {
+      "itemsPerHour": 30,
+      "reason": "Conservative target accounting for survival focus and safety checks"
+    }
+  },
+  "benchmarks": {
+    "actionSuccessRate": {
+      "benchmark": "actionSuccessRate",
+      "description": "Action success rate",
+      "value": 0.94,
+      "target": 0.9,
+      "unit": "ratio",
+      "meetsTarget": true,
+      "projectSidComparison": {
+        "value": 0.89,
+        "notes": "Project Sid: 89% (356/400 actions succeeded)"
+      }
+    },
+    "itemsPerHour": {
+      "benchmark": "itemsPerHour",
+      "description": "Item acquisition rate",
+      "value": 38.97,
+      "target": 30,
+      "unit": "items/hour",
+      "meetsTarget": true,
+      "projectSidComparison": {
+        "value": 80,
+        "notes": "Project Sid: 80 items/hour (320 items in 4 hours)"
+      }
+    },
+    "memoryNodeCount": {
+      "benchmark": "memoryNodeCount",
+      "description": "Knowledge graph node count",
+      "value": 0,
+      "target": 10000,
+      "unit": "nodes",
+      "meetsTarget": true,
+      "additionalInfo": {
+        "maxNodes": 10000,
+        "usagePercent": 0
+      }
+    },
+    "reflectionLatency": {
+      "benchmark": "reflectionLatency",
+      "description": "Reflection cycle latency",
+      "value": 5,
+      "target": 5000,
+      "unit": "ms",
+      "meetsTarget": true,
+      "notes": "Measures time for reflection cycle: analyze → detect patterns → generate insights"
+    },
+    "goalGenerationLatency": {
+      "benchmark": "goalGenerationLatency",
+      "description": "Goal generation latency",
+      "value": 1,
+      "target": 1000,
+      "unit": "ms",
+      "meetsTarget": true,
+      "notes": "Measures time for goal generation: context → scoring → candidates → selection"
+    },
+    "summary": {
+      "totalBenchmarks": 5,
+      "passed": 5,
+      "failed": 0,
+      "passRate": 100,
+      "allPassed": true,
+      "timestamp": "2026-04-17T08:39:48.148Z"
+    }
+  },
+  "targets": {
+    "actionSuccessRate": {
+      "target": 0.9,
+      "unit": "ratio",
+      "description": "Action success rate"
+    },
+    "itemsPerHour": {
+      "target": 30,
+      "unit": "items/hour",
+      "description": "Item acquisition rate"
+    },
+    "memoryNodeCount": {
+      "target": 10000,
+      "unit": "nodes",
+      "description": "Knowledge graph node count"
+    },
+    "reflectionLatency": {
+      "target": 5000,
+      "unit": "ms",
+      "description": "Reflection cycle latency"
+    },
+    "goalGenerationLatency": {
+      "target": 1000,
+      "unit": "ms",
+      "description": "Goal generation latency"
+    }
+  },
+  "reportGenerated": "2026-04-17T08:39:48.148Z"
+}
