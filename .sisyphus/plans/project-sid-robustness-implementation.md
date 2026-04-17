@@ -1487,7 +1487,7 @@ Max Concurrent: 4 tasks per wave
   - Files: `src/layers/commander.js`, `src/chat/chat-handler.js`, `tests/integration/autonomous-goals.test.js`
   - Pre-commit: `npm run test:integration -- autonomous-goals`
 
-- [ ] 13. E2E Robustness Tests
+- [x] 13. E2E Robustness Tests
 
   **What to do**:
   - Create comprehensive E2E test suite for robustness
@@ -1594,7 +1594,7 @@ Max Concurrent: 4 tasks per wave
   - Files: `tests/e2e/robustness-suite.test.js`
   - Pre-commit: `npm run test:e2e -- robustness-suite`
 
-- [ ] 14. Performance Benchmarks
+- [x] 14. Performance Benchmarks
 
   **What to do**:
   - Create benchmark suite measuring key metrics
