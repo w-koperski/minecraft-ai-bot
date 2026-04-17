@@ -1,0 +1,63 @@
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mKnowledgeGraph initialized[39m {"service":"minecraft-ai-bot","maxNodes":10000}
+=================================================
+  Performance Benchmark Suite
+  Minecraft AI Bot - Task 14
+=================================================
+
+Running benchmarks...
+
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741463_wq1xdjuwu","type":"semantic_memory","validFrom":1776416741464,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741465_q19bd8pl0","type":"semantic_memory","validFrom":1776416741465,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741466_jepgw4674","type":"semantic_memory","validFrom":1776416741466,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741466_gtnjjzh28","type":"semantic_memory","validFrom":1776416741466,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741466_hljxs84iu","type":"semantic_memory","validFrom":1776416741466,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741467_ursaufewi","type":"semantic_memory","validFrom":1776416741467,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741467_zquhw2wz2","type":"semantic_memory","validFrom":1776416741467,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741467_yen2x3v43","type":"semantic_memory","validFrom":1776416741467,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741468_gaognsohb","type":"semantic_memory","validFrom":1776416741468,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_insight_1776416741468_z43kvaje2","type":"semantic_memory","validFrom":1776416741468,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mEntity added[39m {"service":"minecraft-ai-bot","id":"semantic_goal_priority_1776416741469_v2nygatd9","type":"semantic_memory","validFrom":1776416741470,"validUntil":null}
+2026-04-17 09:05:41 [[34mdebug[39m]: [34mNode not found for getNeighbors[39m {"service":"minecraft-ai-bot","nodeId":"player_self"}
+  actionSuccessRate
+    Value: 0.94 ratio
+    Target: 0.9 ratio
+    Status: ✅ PASS
+
+    vs Project Sid: 0.89 ratio
+    Note: Project Sid: 89% (356/400 actions succeeded)
+
+  itemsPerHour
+    Value: 38.98 items/hour
+    Target: 30 items/hour
+    Status: ✅ PASS
+
+    vs Project Sid: 80 items/hour
+    Note: Project Sid: 80 items/hour (320 items in 4 hours)
+
+  memoryNodeCount
+    Value: 0 nodes
+    Target: 10000 nodes
+    Status: ✅ PASS
+
+  reflectionLatency
+    Value: 6 ms
+    Target: 5000 ms
+    Status: ✅ PASS
+
+  goalGenerationLatency
+    Value: 1 ms
+    Target: 1000 ms
+    Status: ✅ PASS
+
+-------------------------------------------------
+  Summary
+-------------------------------------------------
+  Total Benchmarks: 5
+  Passed: 5
+  Failed: 0
+  Pass Rate: 100%
+
+  ✅ ALL BENCHMARKS PASSED
+
+Report saved to: /home/seryki/.openclaw/workspace/minecraft-ai-bot/.sisyphus/evidence/task-14-benchmark-report.json
+
