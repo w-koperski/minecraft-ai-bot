@@ -1,0 +1,30 @@
+## Overview
+## Feature Flags
+## Wave 1: Robustness Foundation
+### Enhanced Action Awareness (Confidence Scoring)
+### Automated Memory Consolidation
+### Danger Prediction System
+### Failure Pattern Detection
+## Wave 2: Skill System
+### Skill Registry
+### Skill Executor
+### Item Progression Tracker
+## Wave 3: Learning & Autonomy
+### Reflection Module
+### Goal Generation System
+## Performance Benchmarks
+## Rollback Procedures
+### Environment Variable (Fastest)
+### Chat Command (Remote)
+### Edit .env and Restart (Cleanest)
+### State File (Programmatic)
+## Monitoring
+## Troubleshooting
+### High Memory Usage
+### Low Action Success Rate
+### Danger False Positives
+### Reflection Not Working
+## Integration Points
+## References
+---
+328 docs/ROBUSTNESS.md

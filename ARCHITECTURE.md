@@ -9,6 +9,75 @@
 
 ## 🏗️ Architecture Diagram
 
+### Core 3-Layer System
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Layer 3: Commander (Claude Sonnet 4.5)                │
+│ - Monitor bot state every 10-30s                      │
+│ - Issue high-level commands ("build house", "find diamonds") │
+│ - Strategy corrections when stuck                     │
+│ - Progress reporting to user                          │
+│ - Autonomous goal generation (when enabled)            │
+└────────────────┬────────────────────────────────────────┘
+                 │ text commands
+┌────────────────▼────────────────────────────────────────┐
+│ Layer 2: Strategy (Qwen 2.5 7B, 410ms)                  │
+│ - Translate commands into action sequences             │
+│ - Pathfinding and navigation                           │
+│ - Inventory management                                   │
+│ - Crafting recipes                                       │
+│ - Danger prediction integration                        │
+└────────────────┬────────────────────────────────────────┘
+                 │ action sequences
+┌────────────────▼────────────────────────────────────────┐
+│ Layer 1: Pilot (Llama 3.2 1B, 210ms)                  │
+│ - Execute actions (move, dig, place, attack)            │
+│ - Avoid hazards (lava, mobs, falls)                     │
+│ - React to environment changes                         │
+│ - Confidence-scored actions                            │
+└────────────────┬────────────────────────────────────────┘
+                 │ Mineflayer API
+┌────────────────▼────────────────────────────────────────┐
+│ Minecraft Bot (Node.js + Mineflayer)                    │
+│ - Connect to Minecraft server                            │
+│ - Observe world (blocks, mobs, inventory)              │
+│ - Execute commands (dig, place, attack, craft)         │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Robustness Modules (Project Sid)
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Shared Services                        │
+├──────────────────────────────────────────────────────────┤
+│  Knowledge Graph (memory/)    │  State Manager (utils/)  │
+│  - Spatial, temporal,         │  - File-based state      │
+│    episodic, semantic         │  - Lockfile sync         │
+│  - Auto-consolidation         │  - Commands/plan/state   │
+│  - LRU eviction (10k nodes)   │                            │
+└────────────────┬──────────────────────────────────────────┘
+                 │
+    ┌────────────┼────────────┬────────────┬────────────┐
+    │            │            │            │            │
+┌───▼───┐  ┌────▼────┐  ┌────▼────┐ ┌────▼────┐ ┌────▼────┐
+│Action │  │  Skill  │  │ Danger │ │Reflection│ │  Goal   │
+│Awareness│ │ System │  │Predictor│ │ Module  │ │Generator│
+├─────────┤ ├─────────┤  ├─────────┤ ├─────────┤ ├─────────┤
+│Confidence│ │Registry│  │Spatial │ │30-min  │ │ Graph   │
+│Scoring  │ │Executor│  │tracking│ │analysis│ │ Scorer  │
+│Multi-step│ │Retry  │  │7-day   │ │Learnings│ │ Generator│
+│verify   │ │(3 max) │  │decay   │ │Adjust │ │         │
+└─────────┘ └─────────┘  └─────────┘ └─────────┘ └─────────┘
+     │            │            │            │            │
+     └────────────┴────────────┴────────────┴────────────┘
+                              │
+                    ┌─────────▼──────────┐
+                    │   Item Tracker      │
+                    │ Milestone detection │
+                    │ Items/hour rate     │
+                    └─────────────────────┘
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Layer 3: Commander (Claude Sonnet 4.5)                  │
@@ -116,6 +185,42 @@ All models tested on headless server with GPU:
 - sherpa-onnx-tts TTS
 - File-based communication
 
+### 7. Action Awareness (`src/layers/action-awareness.js`)
+- Confidence scoring for every action (0.0-1.0)
+- Multi-step verification at 100ms/500ms/1000ms
+- Failure pattern detection and intervention
+- Integration with skill executor for retry decisions
+
+### 8. Danger Predictor (`src/safety/danger-predictor.js`)
+- Spatial danger tracking with 20-block radius
+- Exponential decay (7-day half-life)
+- Integration with goal scorer and strategy layer
+
+### 9. Skill System (`src/skills/`)
+- Registry with O(1) lookup (5 primitives + 5 composites)
+- Executor with retry logic (3 attempts max)
+- Confidence threshold filtering
+
+### 10. Reflection Module (`src/learning/reflection-module.js`)
+- 30-minute performance analysis cycle
+- Pattern analysis from failure detection
+- Generates learnings and parameter adjustments
+
+### 11. Goal Generator (`src/goals/`)
+- Graph-based goal relationships
+- Multi-factor scoring (danger, feasibility, importance)
+- Context-aware autonomous goal generation
+
+### 12. Item Tracker (`src/metrics/item-tracker.js`)
+- Item acquisition logging with timestamps
+- Milestone detection (Stone Age, Iron Age, etc.)
+- Items/hour rate calculation
+
+### 13. Benchmark Suite (`src/metrics/benchmark-suite.js`)
+- 5-metric performance tracking
+- Project Sid comparison data
+- JSON report generation
+
 ## 🔄 Data Flow
 
 ### State Flow (bottom-up)
@@ -142,6 +247,77 @@ User/Voice → commander.js → commands.json
 
 ## 📁 File Structure
 
+```
+minecraft-ai-bot/
+├── ARCHITECTURE.md            # This file
+├── IMPLEMENTATION_PLAN.md     # Step-by-step implementation guide
+├── README.md                  # Project overview
+├── AGENTS.md                  # Developer guide
+├── package.json               # Node.js dependencies
+├── .env.example               # Configuration template
+├── src/
+│   ├── index.js               # Full 3-layer + companion + robustness
+│   ├── bot.js                 # Standalone bot (no AI layers)
+│   ├── layers/
+│   │   ├── pilot.js           # Layer 1: Fast reactions (adaptive loop)
+│   │   ├── strategy.js        # Layer 2: Planning
+│   │   ├── commander.js       # Layer 3: High-level goals
+│   │   ├── cognitive-controller.js # PIANO decision synthesis
+│   │   └── action-awareness.js # Confidence scoring + verification
+│   ├── skills/
+│   │   ├── skill-registry.js    # O(1) skill lookup
+│   │   ├── skill-executor.js    # Retry logic
+│   │   ├── primitives/          # 5 primitive skills
+│   │   └── composite/           # 5 composite skills
+│   ├── safety/
+│   │   ├── danger-predictor.js # Spatial danger tracking
+│   │   └── safety-manager.js   # Safety policy
+│   ├── goals/
+│   │   ├── goal-graph.js        # Hierarchical relationships
+│   │   ├── goal-scorer.js       # Multi-factor scoring
+│   │   └── goal-generator.js    # Context-aware generation
+│   ├── learning/
+│   │   └── reflection-module.js # 30-min performance analysis
+│   ├── metrics/
+│   │   ├── item-tracker.js      # Item progression
+│   │   └── benchmark-suite.js   # Performance benchmarks
+│   ├── memory/
+│   │   ├── knowledge-graph.js   # Temporal memory storage
+│   │   ├── conversation-store.js # SQLite conversations
+│   │   └── memory-store.js      # Persistence layer
+│   ├── emotion/
+│   │   └── emotion-detector.js  # Emotion classification
+│   ├── social/
+│   │   └── social-awareness.js  # Player BDI model
+│   ├── utils/
+│   │   ├── omniroute.js         # LLM API client
+│   │   ├── state-manager.js     # File locking
+│   │   ├── rate-limiter.js      # Bottleneck wrapper
+│   │   └── logger.js            # Winston logging
+│   ├── chat/
+│   │   └── chat-handler.js      # In-game commands
+│   └── voice/
+│       └── discord-voice.js     # Discord integration
+├── prompts/
+│   ├── pilot.txt                # Pilot prompt template
+│   ├── strategy.txt             # Strategy prompt template
+│   └── commander.txt            # Commander prompt template
+├── personality/
+│   └── Soul.md                  # Personality configuration
+├── state/
+│   ├── state.json               # Current bot state
+│   ├── commands.json            # Commander → Strategy
+│   ├── plan.json                # Strategy → Pilot
+│   └── memory.db                # SQLite database
+├── docs/
+│   ├── COMPANION_FEATURES.md    # Personality, memory, voice
+│   └── ROBUSTNESS.md            # Confidence, skills, reflection
+├── scripts/
+│   └── run-benchmarks.js        # Benchmark runner
+└── tests/
+    ├── unit/                    # Unit tests
+    ├── integration/             # Layer communication
+    └── e2e/                     # End-to-end
 ```
 minecraft-ai-bot/
 ├── ARCHITECTURE.md          # This file
