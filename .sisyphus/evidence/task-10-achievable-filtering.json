@@ -1,0 +1,18 @@
+{
+  "noPrereqs": [
+    "survive",
+    "find_shelter",
+    "gather_wood",
+    "gather_stone",
+    "explore",
+    "find_village"
+  ],
+  "withPrereqs": [
+    "survive",
+    "find_shelter",
+    "craft_stone_tools",
+    "explore",
+    "find_village",
+    "build_house"
+  ]
+}
