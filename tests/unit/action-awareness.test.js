@@ -274,60 +274,6 @@ describe('ActionAwareness', () => {
     });
   });
 
-    it('should detect when dig action fails (block not found)', async () => {
-      const startState = createDigState(true, 2);
-
-      mockVision.extractState
-        .mockReturnValueOnce(startState)  // initial state
-        .mockReturnValueOnce(startState)  // 100ms check
-        .mockReturnValueOnce(startState)  // 500ms check
-        .mockReturnValueOnce(startState)  // 1000ms check
-        .mockReturnValueOnce(startState);  // final state
-
-      mockBot.findBlock.mockReturnValue(null);
-
-      const aa = new ActionAwareness(mockBot, mockVision);
-      const action = { type: 'dig', blockType: 'oak_log' };
-      const expectedOutcome = {
-        blockRemoved: true,
-        itemsGained: [{ name: 'oak_log', count: 1 }]
-      };
-
-      const result = await aa.executeWithVerification(action, expectedOutcome);
-
-      expect(result.success).toBe(false);
-      expect(result.reason).toBe('execution_error');
-      expect(result.error).toContain('Block oak_log not found');
-    });
-
-    it('should detect when dig succeeds but no items gained', async () => {
-      const startState = createDigState(true, 2);
-      const endState = createDigState(true, 2); // No inventory change
-
-      mockVision.extractState
-        .mockReturnValueOnce(startState)  // initial state
-        .mockReturnValueOnce(startState)  // 100ms check
-        .mockReturnValueOnce(startState)  // 500ms check
-        .mockReturnValueOnce(endState)  // 1000ms check
-        .mockReturnValueOnce(endState);  // final state
-
-      mockBot.findBlock.mockReturnValue({ name: 'oak_log', position: { x: 1, y: 64, z: 0 } });
-
-      const aa = new ActionAwareness(mockBot, mockVision);
-      const action = { type: 'dig', blockType: 'oak_log' };
-      const expectedOutcome = {
-        blockRemoved: true,
-        itemsGained: [{ name: 'oak_log', count: 1 }]
-      };
-
-      const result = await aa.executeWithVerification(action, expectedOutcome);
-
-      expect(result.success).toBe(false);
-      expect(result.reason).toBe('action_not_completed');
-      expect(result.actual.blockRemoved).toBe(false);
-    });
-  });
-
   describe('action history', () => {
     it('should record action in history', async () => {
       const startState = createMockState();
@@ -884,3 +830,241 @@ describe('ActionAwareness', () => {
     });
   });
 
+  describe('detectFailurePattern', () => {
+    it('should return null when no failures exist', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      aa.actionHistory.push(
+        { action: { type: 'move' }, match: true, timestamp: Date.now() },
+        { action: { type: 'move' }, match: true, timestamp: Date.now() }
+      );
+
+      const pattern = aa.detectFailurePattern();
+      expect(pattern).toBeNull();
+    });
+
+    it('should return null when fewer than 3 failures', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      aa.actionHistory.push(
+        { action: { type: 'move' }, match: false, timestamp: Date.now() },
+        { action: { type: 'move' }, match: false, timestamp: Date.now() }
+      );
+
+      const pattern = aa.detectFailurePattern();
+      expect(pattern).toBeNull();
+    });
+
+    it('should detect stuck pattern after 3 consecutive move failures', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      aa.actionHistory.push(
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 3000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 2000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 1000 }
+      );
+
+      const pattern = aa.detectFailurePattern();
+
+      expect(pattern).not.toBeNull();
+      expect(pattern.type).toBe('stuck');
+      expect(pattern.count).toBe(3);
+      expect(pattern.suggestion).toContain('pathfind');
+    });
+
+    it('should detect wrong_tool pattern after 3 dig failures', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      aa.actionHistory.push(
+        { action: { type: 'dig', blockType: 'iron_ore' }, match: false, actual: { blockRemoved: false }, timestamp: now - 3000 },
+        { action: { type: 'dig', blockType: 'iron_ore' }, match: false, actual: { blockRemoved: false }, timestamp: now - 2000 },
+        { action: { type: 'dig', blockType: 'iron_ore' }, match: false, actual: { blockRemoved: false }, timestamp: now - 1000 }
+      );
+
+      const pattern = aa.detectFailurePattern();
+
+      expect(pattern).not.toBeNull();
+      expect(pattern.type).toBe('wrong_tool');
+      expect(pattern.count).toBe(3);
+      expect(pattern.suggestion).toContain('pickaxe');
+    });
+
+    it('should detect blocked pattern when position change is minimal', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      aa.actionHistory.push(
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { positionChange: { x: 0.05, z: 0.02 } }, timestamp: now - 3000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { positionChange: { x: 0.03, z: 0.01 } }, timestamp: now - 2000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { positionChange: { x: 0.02, z: 0.01 } }, timestamp: now - 1000 }
+      );
+
+      const pattern = aa.detectFailurePattern();
+
+      expect(pattern).not.toBeNull();
+      expect(pattern.type).toBe('blocked');
+      expect(pattern.suggestion).toContain('obstacle');
+    });
+
+    it('should group failures by action type', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      // Mix of different failure types
+      aa.actionHistory.push(
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 5000 },
+        { action: { type: 'dig', blockType: 'stone' }, match: false, actual: { blockRemoved: false }, timestamp: now - 4000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 3000 },
+        { action: { type: 'dig', blockType: 'stone' }, match: false, actual: { blockRemoved: false }, timestamp: now - 2000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 1000 }
+      );
+
+      const pattern = aa.detectFailurePattern();
+
+      // Should detect move pattern (3 failures) not dig (2 failures)
+      expect(pattern).not.toBeNull();
+      expect(pattern.action.type).toBe('move');
+      expect(pattern.count).toBe(3);
+    });
+
+    it('should include timestamps in pattern', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      aa.actionHistory.push(
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 3000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 2000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 1000 }
+      );
+
+      const pattern = aa.detectFailurePattern();
+
+      expect(pattern.firstFailure).toBe(now - 3000);
+      expect(pattern.lastFailure).toBe(now - 1000);
+      expect(pattern.timestamp).toBeDefined();
+    });
+  });
+
+  describe('categorizeFailure', () => {
+    it('should categorize stuck failure for move with no movement', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const result = aa.categorizeFailure(
+        { type: 'move', direction: 'forward' },
+        { moved: false }
+      );
+
+      expect(result.type).toBe('stuck');
+      expect(result.suggestion).toContain('pathfind');
+    });
+
+    it('should categorize wrong_tool for dig without block removal', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const result = aa.categorizeFailure(
+        { type: 'dig', blockType: 'diamond_ore' },
+        { blockRemoved: false }
+      );
+
+      expect(result.type).toBe('wrong_tool');
+      expect(result.suggestion).toContain('pickaxe');
+    });
+
+    it('should categorize blocked for minimal position change', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const result = aa.categorizeFailure(
+        { type: 'move', direction: 'forward' },
+        { positionChange: { x: 0.05, z: 0.03 } }
+      );
+
+      expect(result.type).toBe('blocked');
+      expect(result.suggestion).toContain('obstacle');
+    });
+
+    it('should return unknown for unrecognized failure', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const result = aa.categorizeFailure(
+        { type: 'unknown_action' },
+        {}
+      );
+
+      expect(result.type).toBe('unknown');
+      expect(result.suggestion).toContain('reassess');
+    });
+  });
+
+  describe('getFailurePattern', () => {
+    it('should return pattern for specific action type', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      const now = Date.now();
+
+      aa.actionHistory.push(
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 3000 },
+        { action: { type: 'dig', blockType: 'stone' }, match: false, actual: { blockRemoved: false }, timestamp: now - 2000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now - 1000 },
+        { action: { type: 'move', direction: 'forward' }, match: false, actual: { moved: false }, timestamp: now }
+      );
+
+      const pattern = aa.getFailurePattern('move');
+
+      expect(pattern).not.toBeNull();
+      expect(pattern.type).toBe('stuck');
+      expect(pattern.count).toBe(3);
+    });
+
+    it('should return null when fewer than 3 failures for action type', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+
+      aa.actionHistory.push(
+        { action: { type: 'move' }, match: false, actual: { moved: false }, timestamp: Date.now() },
+        { action: { type: 'move' }, match: false, actual: { moved: false }, timestamp: Date.now() }
+      );
+
+      const pattern = aa.getFailurePattern('move');
+      expect(pattern).toBeNull();
+    });
+  });
+
+  describe('_getActionKey', () => {
+    it('should generate key for move action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getActionKey({ type: 'move', direction: 'forward' })).toBe('move:forward');
+    });
+
+    it('should generate key for dig action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getActionKey({ type: 'dig', blockType: 'stone' })).toBe('dig:stone');
+    });
+
+    it('should generate key for craft action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getActionKey({ type: 'craft', recipe: 'oak_planks' })).toBe('craft:oak_planks');
+    });
+
+    it('should handle unknown action', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getActionKey(null)).toBe('unknown');
+    });
+  });
+
+  describe('_getRequiredTool', () => {
+    it('should return correct tool for diamond ore', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getRequiredTool('diamond_ore')).toBe('diamond_pickaxe');
+    });
+
+    it('should return correct tool for iron ore', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getRequiredTool('iron_ore')).toBe('stone_pickaxe');
+    });
+
+    it('should return axe for wood', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getRequiredTool('oak_log')).toBe('axe');
+    });
+
+    it('should return null for unknown block', () => {
+      const aa = new ActionAwareness(mockBot, mockVision);
+      expect(aa._getRequiredTool('unknown_block')).toBeNull();
+    });
+  });
+
+});

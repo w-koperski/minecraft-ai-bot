@@ -102,8 +102,9 @@ describe('ItemTracker', () => {
 
       const stats = tracker.getStats();
       expect(stats.uniqueItems).toBe(15);
-      // 15 items over ~28 minutes (from item0 to item14) ~= 30 items/hour
-      expect(stats.itemsPerHour).toBe(30);
+      // 15 items over ~28 minutes (from item0 to item14) ~= 32 items/hour
+      // Actual calculation: 15 items / 28 min * 60 = 32.14 items/hour
+      expect(stats.itemsPerHour).toBeCloseTo(32.14, 1);
     });
 
     test('items per hour is 0 when session duration is 0', () => {

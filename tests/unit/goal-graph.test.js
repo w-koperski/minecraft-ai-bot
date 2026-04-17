@@ -168,7 +168,8 @@ describe('GoalGraph', () => {
       });
       
       const names = achievable.map(g => g.name);
-      expect(names).not.toContain('craft_wooden_tools'); // Missing gather_wood (already in completed)
+      // craft_wooden_tools IS achievable because gather_wood is completed
+      expect(names).toContain('craft_wooden_tools'); // Prerequisite met
       expect(names).not.toContain('craft_stone_tools'); // Missing gather_stone
     });
 
