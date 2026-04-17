@@ -1,0 +1,13 @@
+QA Scenario 1: Low Health Increases Survival Drive
+Date: 2026-04-17
+Context: {health: 5, food: 10, inventory: []}
+Personality: default + warmth=0.8
+Scores: {
+  "survival": 98,
+  "curiosity": 26,
+  "competence": 80,
+  "social": 10,
+  "goalOriented": 12
+}
+Assert: survival > 70 => 98 > 70 => true
+RESULT: PASS

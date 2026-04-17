@@ -1,0 +1,13 @@
+QA Scenario 2: High Curiosity Trait Increases Exploration Drive
+Date: 2026-04-17
+Context: {health: 20, unexploredBiomes: 5}
+Personality: curiosity=0.9
+Scores: {
+  "survival": 0,
+  "curiosity": 92,
+  "competence": 95,
+  "social": 0,
+  "goalOriented": 12
+}
+Assert: curiosity > 60 => 92 > 60 => true
+RESULT: PASS
