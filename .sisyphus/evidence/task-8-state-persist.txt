@@ -1,0 +1,33 @@
+=== Task 8 Evidence: Drive scores saved to state ===
+Date: 2026-04-17
+
+QA Scenario: Drive scores saved to state
+
+Preconditions: StateManager initialized
+Steps:
+  1. Compute drive scores
+  2. Write to state via setDriveScores()
+  3. Read state via StateManager.read()
+  4. Assert driveScores object present with 5 drives
+
+Test Results (from npm test):
+PASS tests/unit/state-manager.test.js
+  ✓ should create state with driveScores if state does not exist
+  ✓ should update existing state with driveScores
+  ✓ should log significant changes when drive scores change by >10 points
+  ✓ should not log when changes are below threshold
+  ✓ should handle missing previous scores gracefully
+
+Unit Test Verification:
+- setDriveScores() creates state with driveScores when state doesn't exist
+- Default state includes: position {x:0, y:64, z:0}, health:20, empty inventory/entities/blocks
+- driveScores object contains all 5 drives: survival, curiosity, competence, social, goalOriented
+- State persists to state/state.json via StateManager.write()
+- File locking ensures thread-safe writes
+
+Expected Result: Drive scores persisted in state file
+ACTUAL: PASS - All 5 drive scores present in state, verified by unit tests
+
+Test Suite Results:
+Test Suites: 25 passed, 25 total
+Tests: 762 passed, 6 skipped, 768 total

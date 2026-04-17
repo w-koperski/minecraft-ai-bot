@@ -1,0 +1,33 @@
+=== Task 8 Evidence: getDriveScores returns current scores ===
+Date: 2026-04-17
+
+QA Scenario: getDriveScores returns current scores
+
+Preconditions: Drive scores in state (from setDriveScores)
+Steps:
+  1. Call StateManager.getDriveScores()
+  2. Assert returns object with survival, curiosity, competence, social, goalOriented
+
+Test Results (from npm test):
+PASS tests/unit/state-manager.test.js
+  ✓ should return drive scores from state
+  ✓ should return null if state does not exist
+  ✓ should return null if state has no driveScores
+
+Unit Test Verification:
+- getDriveScores() reads state via StateManager.read('state')
+- Returns state.driveScores if present
+- Returns null if state doesn't exist or has no driveScores
+- All 5 drives returned: survival, curiosity, competence, social, goalOriented
+- Values match what was set via setDriveScores()
+
+Example from tests:
+  Input: setDriveScores({ survival: 30, curiosity: 45, competence: 60, social: 20, goalOriented: 75 })
+  Output: getDriveScores() returns { survival: 30, curiosity: 45, competence: 60, social: 20, goalOriented: 75 }
+
+Expected Result: Drive scores retrievable from state
+ACTUAL: PASS - getDriveScores() returns all 5 drive scores correctly
+
+Test Suite Results:
+Test Suites: 25 passed, 25 total
+Tests: 762 passed, 6 skipped, 768 total

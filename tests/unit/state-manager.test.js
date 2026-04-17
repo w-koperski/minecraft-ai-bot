@@ -14,6 +14,14 @@ const mockLockfile = {
 
 jest.mock('lockfile', () => mockLockfile);
 
+const mockLogger = {
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn()
+};
+jest.mock('../../src/utils/logger', () => mockLogger);
+
 describe('StateManager', () => {
   let StateManager;
   let stateDir;
@@ -212,13 +220,206 @@ describe('concurrent writes', () => {
       await expect(manager.write('state', validState)).resolves.not.toThrow();
     });
 
-    it('should reject state with missing required fields', async () => {
-      const manager = new StateManager();
-      const invalidState = {
-        position: { x: 0, y: 64, z: 0 }
-      };
+it('should reject state with missing required fields', async () => {
+    const manager = new StateManager();
+    const invalidState = {
+      position: { x: 0, y: 64, z: 0 }
+    };
 
-      await expect(manager.write('state', invalidState)).rejects.toThrow();
+    await expect(manager.write('state', invalidState)).rejects.toThrow();
+  });
+});
+
+describe('drive scores', () => {
+  beforeEach(() => {
+    mockLogger.info.mockClear();
+    mockLogger.debug.mockClear();
+  });
+
+  describe('getDriveScores', () => {
+    it('should return null when no state exists', async () => {
+      const manager = new StateManager();
+      const result = await manager.getDriveScores();
+      expect(result).toBeNull();
+    });
+
+    it('should return null when state exists but has no driveScores', async () => {
+      const manager = new StateManager();
+      const stateWithoutDrives = {
+        position: { x: 0, y: 64, z: 0 },
+        health: 20,
+        inventory: [],
+        entities: [],
+        blocks: []
+      };
+      await manager.write('state', stateWithoutDrives);
+
+      const result = await manager.getDriveScores();
+      expect(result).toBeNull();
+
+      await manager.delete('state');
+    });
+
+    it('should return driveScores when present in state', async () => {
+      const manager = new StateManager();
+      const driveScores = {
+        survival: 30,
+        curiosity: 45,
+        competence: 60,
+        social: 20,
+        goalOriented: 75
+      };
+      await manager.setDriveScores(driveScores);
+
+      const result = await manager.getDriveScores();
+      expect(result).toEqual(driveScores);
+
+      await manager.delete('state');
     });
   });
+
+  describe('setDriveScores', () => {
+    it('should create state with driveScores if state does not exist', async () => {
+      const manager = new StateManager();
+      const driveScores = {
+        survival: 30,
+        curiosity: 45,
+        competence: 60,
+        social: 20,
+        goalOriented: 75
+      };
+
+      await manager.setDriveScores(driveScores);
+
+      const state = await manager.read('state');
+      expect(state.driveScores).toEqual(driveScores);
+      expect(state.position).toEqual({ x: 0, y: 64, z: 0 });
+
+      await manager.delete('state');
+    });
+
+    it('should update existing state with driveScores', async () => {
+      const manager = new StateManager();
+      const existingState = {
+        position: { x: 10, y: 65, z: 20 },
+        health: 18,
+        inventory: [{ name: 'dirt' }],
+        entities: [],
+        blocks: []
+      };
+      await manager.write('state', existingState);
+
+      const driveScores = {
+        survival: 50,
+        curiosity: 35,
+        competence: 70,
+        social: 15,
+        goalOriented: 80
+      };
+      await manager.setDriveScores(driveScores);
+
+      const state = await manager.read('state');
+      expect(state.driveScores).toEqual(driveScores);
+      expect(state.health).toBe(18);
+
+      await manager.delete('state');
+    });
+
+    it('should log when drive scores change by more than 10 points', async () => {
+      const manager = new StateManager();
+      const initialScores = {
+        survival: 20,
+        curiosity: 30,
+        competence: 40,
+        social: 50,
+        goalOriented: 60
+      };
+      await manager.setDriveScores(initialScores);
+      mockLogger.info.mockClear();
+
+      const newScores = {
+        survival: 35,
+        curiosity: 30,
+        competence: 55,
+        social: 50,
+        goalOriented: 60
+      };
+      await manager.setDriveScores(newScores);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Drive scores changed significantly',
+        expect.objectContaining({ changes: expect.stringContaining('survival: 20 -> 35 (+15)') })
+      );
+
+      await manager.delete('state');
+    });
+
+    it('should not log when drive scores change by less than 10 points', async () => {
+      const manager = new StateManager();
+      const initialScores = {
+        survival: 20,
+        curiosity: 30,
+        competence: 40,
+        social: 50,
+        goalOriented: 60
+      };
+      await manager.setDriveScores(initialScores);
+      mockLogger.info.mockClear();
+
+      const newScores = {
+        survival: 25,
+        curiosity: 30,
+        competence: 45,
+        social: 50,
+        goalOriented: 60
+      };
+      await manager.setDriveScores(newScores);
+
+      expect(mockLogger.info).not.toHaveBeenCalled();
+
+      await manager.delete('state');
+    });
+
+    it('should not log on first setDriveScores call', async () => {
+      const manager = new StateManager();
+      const driveScores = {
+        survival: 30,
+        curiosity: 45,
+        competence: 60,
+        social: 20,
+        goalOriented: 75
+      };
+
+      await manager.setDriveScores(driveScores);
+
+      expect(mockLogger.info).not.toHaveBeenCalled();
+
+      await manager.delete('state');
+    });
+  });
+
+  describe('schema validation', () => {
+    it('should accept state with driveScores', async () => {
+      const manager = new StateManager();
+      const validState = {
+        position: { x: 0, y: 64, z: 0 },
+        health: 20,
+        inventory: [],
+        entities: [],
+        blocks: [],
+        driveScores: {
+          survival: 30,
+          curiosity: 45,
+          competence: 60,
+          social: 20,
+          goalOriented: 75
+        }
+      };
+
+      await expect(manager.write('state', validState)).resolves.not.toThrow();
+
+      await manager.delete('state');
+    });
+  });
+});
 });

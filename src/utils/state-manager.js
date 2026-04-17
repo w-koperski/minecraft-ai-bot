@@ -1,6 +1,10 @@
 const fs = require('fs').promises;
 const path = require('path');
 const lockfile = require('lockfile');
+const logger = require('./logger');
+
+// Threshold for logging significant drive score changes ( >10 points)
+const DRIVE_CHANGE_LOG_THRESHOLD = 10;
 
 class StateManager {
   constructor(stateDir = path.join(process.cwd(), 'state'), lockTimeout = 5000) {
@@ -15,7 +19,17 @@ class StateManager {
           health: { type: 'number' },
           inventory: { type: 'array' },
           entities: { type: 'array' },
-          blocks: { type: 'array' }
+          blocks: { type: 'array' },
+          driveScores: {
+            type: 'object',
+            properties: {
+              survival: { type: 'number' },
+              curiosity: { type: 'number' },
+              competence: { type: 'number' },
+              social: { type: 'number' },
+              goalOriented: { type: 'number' }
+            }
+          }
         }
       },
       plan: {
@@ -25,6 +39,8 @@ class StateManager {
         type: 'object'
       }
     };
+    // Track previous drive scores to detect significant changes
+    this._previousDriveScores = null;
   }
 
   addSchema(name, schema) {
@@ -112,6 +128,54 @@ class StateManager {
       await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
       return true;
     });
+  }
+
+  async getDriveScores() {
+    const state = await this.read('state');
+    if (!state || !state.driveScores) {
+      return null;
+    }
+    return state.driveScores;
+  }
+
+  async setDriveScores(scores) {
+    const state = await this.read('state') || {
+      position: { x: 0, y: 64, z: 0 },
+      health: 20,
+      inventory: [],
+      entities: [],
+      blocks: []
+    };
+
+    const previousScores = state.driveScores;
+    state.driveScores = { ...scores };
+
+    await this.write('state', state);
+    this._previousDriveScores = previousScores;
+
+    this._logSignificantDriveChanges(previousScores, scores);
+  }
+
+  _logSignificantDriveChanges(previous, current) {
+    if (!previous) return;
+
+    const changes = [];
+    const drives = ['survival', 'curiosity', 'competence', 'social', 'goalOriented'];
+
+    for (const drive of drives) {
+      const prevValue = previous[drive];
+      const currValue = current[drive];
+      if (prevValue !== undefined && currValue !== undefined) {
+        const change = Math.abs(currValue - prevValue);
+        if (change > DRIVE_CHANGE_LOG_THRESHOLD) {
+          changes.push(`${drive}: ${prevValue} -> ${currValue} (${change > 0 ? '+' : ''}${currValue - prevValue})`);
+        }
+      }
+    }
+
+    if (changes.length > 0) {
+      logger.info('Drive scores changed significantly', { changes: changes.join(', ') });
+    }
   }
 
   async delete(key) {

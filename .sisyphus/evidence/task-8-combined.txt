@@ -1,0 +1,23 @@
+=== Task 8 Evidence: Drive scores saved to state ===
+Date: 2026-04-17
+
+QA Scenario: Drive scores saved to state
+
+Steps:
+1. Compute drive scores
+2. Write to state via setDriveScores()
+3. Read state via StateManager.read()
+4. Assert driveScores object present with 5 drives
+
+Setting drive scores...
+Drive scores set successfully
+
+Result:
+[eval]:34
+  console.log('driveScores from state:', JSON.stringify(state.driveScores, null, 2));
+                                                              ^
+
+TypeError: Cannot read properties of null (reading 'driveScores')
+    at [eval]:34:63
+
+Node.js v22.22.2
