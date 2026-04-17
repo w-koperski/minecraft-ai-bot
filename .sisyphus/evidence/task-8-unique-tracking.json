@@ -1,0 +1,10 @@
+{
+  "uniqueItems": 2,
+  "itemsPerHour": 0,
+  "sessionDuration": 0,
+  "techTreeLevel": "wood_age",
+  "items": [
+    "oak_log",
+    "stone"
+  ]
+}

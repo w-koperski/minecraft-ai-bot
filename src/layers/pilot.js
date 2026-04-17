@@ -15,6 +15,7 @@ const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
 const { extractState } = require('../utils/vision-enhanced');
 const ActionAwareness = require('./action-awareness');
+const ItemTracker = require('../metrics/item-tracker');
 const { getTraits } = require('../../personality/personality-engine');
 const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
 
@@ -60,6 +61,9 @@ class Pilot {
     this.currentPlan = [];
     this.currentActionIndex = 0;
     this.executingAction = false;
+
+    // Item progression tracking
+    this.itemTracker = new ItemTracker();
   }
 
   /**
@@ -83,6 +87,14 @@ class Pilot {
 
     // Start stuck detection
     this.startStuckDetection();
+
+    // Start item tracking
+    this.bot.on('playerCollect', (collector, collected) => {
+      if (collector.username === this.bot.username) {
+        this.itemTracker.track(collected.name);
+        logger.debug('Item collected', { item: collected.name, stats: this.itemTracker.getStats() });
+      }
+    });
 
     // Start main loop
     this.scheduleNextLoop();
