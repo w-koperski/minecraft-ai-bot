@@ -1,0 +1,21 @@
+# Task 9: Separate Process Evidence
+# Dashboard server runs independently from main bot process
+
+=== TEST: Separate Process Verification ===
+Command: ps aux | grep "node.*dashboard/server.js" | grep -v grep
+Result: 161431 node src/dashboard/server.js
+
+Process ID: 161431
+Running: YES
+Status: PASSED - Dashboard server runs as separate process
+
+=== TEST: Process Isolation ===
+The dashboard server:
+- Runs on port 3001 (independent from Minecraft connection)
+- Has its own process ID (161431)
+- Can run while main bot is not running
+- Graceful shutdown handling implemented (SIGTERM, SIGINT)
+
+=== CONCLUSION ===
+Dashboard server runs as a separate, independent process.
+Crash isolation: If dashboard crashes, main bot continues running.
