@@ -8,8 +8,8 @@ describe('SkillRegistry', () => {
   });
 
   describe('initialization', () => {
-    test('registers 5 primitive skills', () => {
-      expect(registry.list()).toHaveLength(5);
+    test('registers 10 skills (5 primitive + 5 composite)', () => {
+      expect(registry.list()).toHaveLength(10);
     });
 
     test('registers move skill', () => {
@@ -69,9 +69,9 @@ describe('SkillRegistry', () => {
   describe('list', () => {
     test('returns all registered skills', () => {
       const skills = registry.list();
-      expect(skills).toHaveLength(5);
+      expect(skills).toHaveLength(10);
       expect(skills.map(s => s.name)).toEqual(
-        expect.arrayContaining(['move', 'dig', 'place', 'craft', 'collect'])
+        expect.arrayContaining(['move', 'dig', 'place', 'craft', 'collect', 'gather_wood', 'mine_stone', 'craft_tools', 'build_shelter', 'hunt_food'])
       );
     });
   });
@@ -90,7 +90,7 @@ describe('SkillRegistry', () => {
       };
 
       registry.register(customSkill);
-      expect(registry.list()).toHaveLength(6);
+      expect(registry.list()).toHaveLength(11);
       expect(registry.get('custom')).toBeDefined();
     });
 

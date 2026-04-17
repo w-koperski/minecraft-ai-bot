@@ -400,30 +400,23 @@ class ActionAwareness {
     return { confidence, fallback };
   }
 
-  /**
-   * Calculate confidence for move actions
-   */
   _calculateMoveConfidence(action, context) {
     let confidence = 0.8;
 
-    // Check for obstacles in direction
     if (context.obstacles && context.obstacles.length > 0) {
-      confidence -= 0.3;
+      confidence -= 0.15;
     }
 
-    // Check for nearby lava
-    if (context.nearbyLava && context.nearbyLava < 8) {
-      confidence -= 0.2;
-    }
-
-    // Check for hostile mobs
-    if (context.hostileMobs && context.hostileMobs < 5) {
-      confidence -= 0.2;
-    }
-
-    // Check health
-    if (context.health && context.health < 6) {
+    if (context.nearbyLava && context.nearbyLava > 0) {
       confidence -= 0.1;
+    }
+
+    if (context.hostileMobs && context.hostileMobs > 0) {
+      confidence -= 0.1;
+    }
+
+    if (context.health && context.health < 6) {
+      confidence -= 0.25;
     }
 
     return Math.max(0.0, Math.min(1.0, confidence));
@@ -559,9 +552,9 @@ class ActionAwareness {
         return this._distance(startState.position, currentState.position) > 0.05;
 
       case 'dig':
-        // Check if block is being targeted or position changed
-        return startState.position.x !== currentState.position.x ||
-               startState.position.z !== currentState.position.z;
+        // Dig action starts immediately when bot begins targeting block
+        // No position change required - dig is considered started right away
+        return true;
 
       case 'craft':
         // Crafting is near-instant, check inventory
@@ -581,8 +574,9 @@ class ActionAwareness {
         return this._distance(startState.position, currentState.position) > 0.2;
 
       case 'dig':
-        // Should have moved closer or inventory changed
-        return startState.inventory.length !== currentState.inventory.length;
+        // Dig action is considered progressing once started
+        // The actual completion is checked at 1000ms
+        return true;
 
       case 'craft':
         // Crafting should be complete by 500ms

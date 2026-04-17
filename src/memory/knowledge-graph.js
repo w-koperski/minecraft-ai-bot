@@ -498,25 +498,19 @@ class KnowledgeGraph {
        }
      }
 
-     // Restore edges
-     if (data.edges && Array.isArray(data.edges)) {
-       for (const edge of data.edges) {
-         const { key, source, target, ...attrs } = edge;
-         if (source && target) {
-           try {
-             // Use the original key if provided, otherwise let graphology generate one
-             if (key && !this.graph.hasEdge(key)) {
-               this.graph.addEdge(key, source, target, attrs);
-             } else {
-               this.graph.addEdge(source, target, attrs);
-             }
-           } catch (e) {
-             // Edge might already exist or nodes missing, skip
-             logger.debug('Skipping edge during load', { source, target, error: e.message });
-           }
-         }
-       }
-     }
+      // Restore edges
+      if (data.edges && Array.isArray(data.edges)) {
+        for (const edge of data.edges) {
+          const { key, source, target, ...attrs } = edge;
+          if (source && target && this.graph.hasNode(source) && this.graph.hasNode(target)) {
+            try {
+              this.graph.addEdge(source, target, attrs);
+            } catch (e) {
+              logger.debug('Skipping edge during load', { source, target, error: e.message });
+            }
+          }
+        }
+      }
 
      // Restore stats
      if (data.stats) {

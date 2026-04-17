@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "timestamp": "2026-04-17T08:39:48.140Z",
+    "timestamp": "2026-04-17T09:05:41.462Z",
     "projectSidBaseline": {
       "itemsIn4Hours": 320,
       "itemsPerHour": 80,
@@ -27,7 +27,7 @@
     "itemsPerHour": {
       "benchmark": "itemsPerHour",
       "description": "Item acquisition rate",
-      "value": 38.97,
+      "value": 38.98,
       "target": 30,
       "unit": "items/hour",
       "meetsTarget": true,
@@ -51,7 +51,7 @@
     "reflectionLatency": {
       "benchmark": "reflectionLatency",
       "description": "Reflection cycle latency",
-      "value": 5,
+      "value": 6,
       "target": 5000,
       "unit": "ms",
       "meetsTarget": true,
@@ -72,7 +72,7 @@
       "failed": 0,
       "passRate": 100,
       "allPassed": true,
-      "timestamp": "2026-04-17T08:39:48.148Z"
+      "timestamp": "2026-04-17T09:05:41.470Z"
     }
   },
   "targets": {
@@ -102,5 +102,5 @@
       "description": "Goal generation latency"
     }
   },
-  "reportGenerated": "2026-04-17T08:39:48.148Z"
+  "reportGenerated": "2026-04-17T09:05:41.470Z"
 }

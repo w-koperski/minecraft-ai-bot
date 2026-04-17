@@ -20,7 +20,6 @@ class VisionRateLimiter {
     this.limiter = new Bottleneck(limiterConfig);
     this.stopped = false;
 
-    // Log when rate limit is hit (reservoir exhausted)
     this.limiter.on('depleted', () => {
       logger.warn('Vision rate limit reservoir depleted, waiting for refresh', {
         rpm: this.reservoir

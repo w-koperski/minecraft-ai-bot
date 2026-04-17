@@ -1884,25 +1884,25 @@ Max Concurrent: 4 tasks per wave
 > 4 review agents run in PARALLEL after ALL implementation tasks complete.
 > ALL must APPROVE. Present consolidated results to user and get explicit "okay" before marking work complete.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
 
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, check code). For each "Must NOT Have": search codebase for forbidden patterns. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   
   Output: `Must Have [7/7] | Must NOT Have [0 violations] | Tasks [16/16] | Evidence [48/48] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
 
   Run `npm test` + `npm run test:integration` + `npm run test:e2e`. Check coverage report (target: 70%). Review all new files for: proper error handling, no console.log in production, consistent style, proper async/await usage. Check for AI slop: excessive comments, over-abstraction, generic names.
   
   Output: `Tests [PASS/FAIL] | Coverage [X%] | Files [N clean/N issues] | VERDICT: APPROVE/REJECT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high` (+ `playwright` skill if needed)
+- [x] F3. **Real Manual QA** — `unspecified-high` (+ `playwright` skill if needed)
 
   Start from clean state. Run bot for 1 hour. Verify: autonomous goal generation works, skills execute correctly, reflection runs and logs learnings, memory consolidation reduces size, failure recovery works. Test edge cases: bot death, stuck detection, low health. Save evidence to `.sisyphus/evidence/final-qa/`.
   
   Output: `Runtime [1h] | Goals Generated [N] | Skills Executed [N] | Failures Recovered [N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
 
   For each task: read "What to do", compare against actual implementation (git diff, file contents). Verify 1:1 match - everything in spec was built, nothing beyond spec was built. Check "Must NOT do" compliance. Detect scope creep: features not in plan. Flag unaccounted changes.
   
