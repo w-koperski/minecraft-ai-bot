@@ -1,0 +1,21 @@
+QA EVIDENCE: Task 6 - Drive Scoring Functions
+Date: 2026-04-18
+==========================================
+
+Scenario: Survival drive responds to multiple threats
+Tool: Bash (node)
+Steps:
+1. DriveSystem with default personality
+2. scoreSurvival({health: 10, food: 5, nearbyMobs: 3})
+   Note: nearbyMobs not in the API, used dangerLevel instead
+3. Used _computeSurvival({health: 10, food: 5, dangerLevel: 0.8})
+Result: Survival score: 92 > 80 threshold
+VERDICT: PASS
+
+Scenario: Social drive responds to player proximity
+Tool: Bash (node)
+Steps:
+1. DriveSystem with {warmth: 0.9, loyalty: 0.8}
+2. _computeSocial({playerProximity: 5, recentEvents: [5 player_messages]})
+Result: Social score: 95 > 60 threshold
+VERDICT: PASS

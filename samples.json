@@ -1,0 +1,22 @@
+[
+  {"id": 1, "message": "Hey everyone! Welcome to the server!", "expected_emotion": "joy", "category": "greeting"},
+  {"id": 2, "message": "gg that was an amazing game!", "expected_emotion": "joy", "category": "game jargon"},
+  {"id": 3, "message": "OMG I finally found diamonds after HOURS of mining!", "expected_emotion": "joy", "category": "excitement"},
+  {"id": 4, "message": "This is so frustrating, I've died 5 times already", "expected_emotion": "anger", "category": "frustration"},
+  {"id": 5, "message": "Are you serious? Another creeper explosion?!", "expected_emotion": "anger", "category": "frustration"},
+  {"id": 6, "message": "ugh, my base got raided again", "expected_emotion": "sadness", "category": "frustration"},
+  {"id": 7, "message": "I'm so bored, nothing to do here", "expected_emotion": "sadness", "category": "boredom"},
+  {"id": 8, "message": "brb making dinner, don't die while I'm gone", "expected_emotion": "neutral", "category": "command"},
+  {"id": 9, "message": "Stop being such a noob and learn to fight", "expected_emotion": "disgust", "category": "sarcasm"},
+  {"id": 10, "message": "Oh wow, another griefed builds, how original", "expected_emotion": "disgust", "category": "sarcasm"},
+  {"id": 11, "message": "Good luck have fun all you newbies!", "expected_emotion": "joy", "category": "sarcasm"},
+  {"id": 12, "message": "Watch out for the dragon, it's going to explode!", "expected_emotion": "fear", "category": "excitement"},
+  {"id": 13, "message": "NOOOO my enchanted diamond armor!", "expected_emotion": "fear", "category": "frustration"},
+  {"id": 14, "message": "Thanks for the help with the farm, you're the best!", "expected_emotion": "joy", "category": "gratitude"},
+  {"id": 15, "message": "I can't believe you stole my stuff,Reported", "expected_emotion": "anger", "category": "accusation"},
+  {"id": 16, "message": "nice house lol looks like a dirt hut", "expected_emotion": "joy", "category": "sarcasm"},
+  {"id": 17, "message": "Let's go mining at level 12!", "expected_emotion": "joy", "category": "excitement"},
+  {"id": 18, "message": "I'm scared of the Nether, it's too dangerous", "expected_emotion": "fear", "category": "fear"},
+  {"id": 19, "message": "Whatever, I don't care about your opinions", "expected_emotion": "disgust", "category": "indifference"},
+  {"id": 20, "message": "Good game everyone, that was intense!", "expected_emotion": "joy", "category": "game jargon"}
+]

@@ -20,6 +20,7 @@
 
 require('dotenv').config();
 
+const { spawn } = require('child_process');
 const mineflayer = require('mineflayer');
 const pathfinder = require('mineflayer-pathfinder').pathfinder;
 const collectblock = require('mineflayer-collectblock').plugin;
@@ -41,6 +42,54 @@ let commander = null;
 let knowledgeGraph = null;
 let consolidationTimer = null;
 let reflectionTimer = null;
+let dashboardProcess = null;
+
+/**
+ * Spawn dashboard server as child process
+ * Does NOT block bot startup - spawns and continues
+ */
+function spawnDashboard() {
+  if (process.env.ENABLE_DASHBOARD !== 'true') {
+    return;
+  }
+
+  logger.info('Starting dashboard server...');
+
+  dashboardProcess = spawn('node', ['src/dashboard/server.js'], {
+    cwd: process.cwd(),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: false
+  });
+
+  const dashboardPid = dashboardProcess.pid;
+
+  logger.info('Dashboard process spawned', { pid: dashboardPid });
+
+  dashboardProcess.stdout.on('data', (data) => {
+    logger.debug('Dashboard stdout', { data: data.toString().trim() });
+  });
+
+  dashboardProcess.stderr.on('data', (data) => {
+    logger.error('Dashboard stderr', { error: data.toString().trim() });
+  });
+
+  dashboardProcess.on('exit', (code, signal) => {
+    logger.error('Dashboard process exited', {
+      code,
+      signal,
+      pid: dashboardPid
+    });
+    dashboardProcess = null;
+  });
+
+  dashboardProcess.on('error', (err) => {
+    logger.error('Dashboard process error', {
+      error: err.message,
+      pid: dashboardPid
+    });
+    dashboardProcess = null;
+  });
+}
 
 /**
  * Create and configure bot instance
@@ -289,12 +338,19 @@ async function gracefulShutdown(signal) {
             await strategy.stop();
         }
 
-        if (pilot) {
-            logger.info('Stopping Pilot layer...');
-            await pilot.stop();
-        }
+if (pilot) {
+    logger.info('Stopping Pilot layer...');
+    await pilot.stop();
+  }
 
-// Disconnect bot
+  // Stop dashboard process if running
+  if (dashboardProcess) {
+    logger.info('Stopping dashboard process...');
+    dashboardProcess.kill();
+    dashboardProcess = null;
+  }
+
+  // Disconnect bot
   if (bot) {
     logger.info('Disconnecting bot...');
     bot.end();
@@ -331,10 +387,13 @@ async function main() {
         // Create bot
         bot = createBot();
 
-        // Set up event handlers
-        setupBotEvents(bot);
+// Set up event handlers
+  setupBotEvents(bot);
 
-        // Wait for bot to be ready
+  // Spawn dashboard server (non-blocking)
+  spawnDashboard();
+
+  // Wait for bot to be ready
         bot.on('ready', async () => {
             logger.info('Bot ready for AI control');
 
@@ -394,7 +453,8 @@ if (require.main === module) {
 
 // Export for testing
 module.exports = {
-    createBot,
-    initializeLayers,
-    gracefulShutdown
+  createBot,
+  initializeLayers,
+  gracefulShutdown,
+  spawnDashboard
 };

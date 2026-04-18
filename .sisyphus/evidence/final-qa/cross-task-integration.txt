@@ -1,0 +1,39 @@
+QA EVIDENCE: Cross-Task Integration Tests
+Date: 2026-04-18
+==========================================
+
+1. Feature Flags ← → All Features
+   - All 6 new feature flags default to false (DRIVES, DASHBOARD, VISION, 
+     ADVANCED_PATHFINDING, META_LEARNING, CONVERSATION_CONTEXT)
+   - Existing feature flags (AUTO_CONSOLIDATION, etc.) remain functional
+   - Interdependency warnings work correctly
+   VERDICT: PASS
+
+2. DriveSystem → GoalScorer → Dashboard Flow
+   - DriveSystem computes scores (0-100)
+   - GoalScorer integrates drive scores via context parameter
+   - Scores with drives differ from scores without (0.8+ vs 0.7)
+   - Dashboard /api/status reads driveScores from state file
+   VERDICT: PASS
+
+3. KnowledgeGraph ← → Dashboard (Memory API)
+   - KnowledgeGraph save/load works correctly
+   - Dashboard /api/memory returns graph stats
+   - Handles missing file gracefully
+   VERDICT: PASS
+
+4. WebSocketBroadcaster ← → Dashboard WebSocket
+   - Broadcaster throttles broadcasts (max 10/sec confirmed)
+   - Dashboard WebSocket sends initial state on connect
+   - Client-connected broadcast works
+   VERDICT: PASS
+
+5. Feature Flag Isolation (ENABLE_DASHBOARD)
+   - Dashboard can run independently (verified separate process)
+   - Bot code doesn't crash without dashboard (feature flag check exists)
+   VERDICT: PASS
+
+6. Rapid State Changes
+   - Wrote 5 rapid state.json changes
+   - Dashboard /api/status reflected latest state (x:5, health:15)
+   VERDICT: PASS

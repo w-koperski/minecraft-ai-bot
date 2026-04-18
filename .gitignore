@@ -6,3 +6,5 @@ state/*.txt
 *.wav
 *.mp3
 .DS_Store
+src/dashboard/frontend/.next/
+src/dashboard/frontend/out/

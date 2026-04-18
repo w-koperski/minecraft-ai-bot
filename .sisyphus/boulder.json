@@ -2,10 +2,24 @@
   "active_plan": "/home/seryki/.openclaw/workspace/minecraft-ai-bot/.sisyphus/plans/phase-2-enhancements.md",
   "started_at": "2026-04-17T20:23:41.746Z",
   "session_ids": [
-    "ses_262e41ddeffeaGGlQHNy1uPyMU"
+    "ses_262e41ddeffeaGGlQHNy1uPyMU",
+    "ses_262453691ffeukoAhSFP1lDWWx",
+    "ses_261cc9ea6ffeqzKcJ7X1gyPX53",
+    "ses_2618a6023ffeh5Rq2ZD4EdhaF5",
+    "ses_2618a43e1ffennqOGIvCMMn8tq",
+    "ses_2618a2674ffe9iyxAKQTmpbCUe",
+    "ses_2618a097fffe2lMa2c16b8QW42",
+    "ses_26178b85bffeKl7MqhB5N8yP3w"
   ],
   "session_origins": {
-    "ses_262e41ddeffeaGGlQHNy1uPyMU": "direct"
+    "ses_262e41ddeffeaGGlQHNy1uPyMU": "direct",
+    "ses_262453691ffeukoAhSFP1lDWWx": "resume",
+    "ses_261cc9ea6ffeqzKcJ7X1gyPX53": "resume",
+    "ses_2618a6023ffeh5Rq2ZD4EdhaF5": "appended",
+    "ses_2618a43e1ffennqOGIvCMMn8tq": "appended",
+    "ses_2618a2674ffe9iyxAKQTmpbCUe": "appended",
+    "ses_2618a097fffe2lMa2c16b8QW42": "appended",
+    "ses_26178b85bffeKl7MqhB5N8yP3w": "appended"
   },
   "plan_name": "phase-2-enhancements",
   "agent": "atlas",
@@ -18,6 +32,78 @@
       "agent": "Sisyphus-Junior",
       "category": "quick",
       "updated_at": "2026-04-17T20:26:57.876Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "DriveSystem Class",
+      "session_id": "ses_262c326f8ffeYUJMffuLBLRJ3G",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-17T21:04:06.005Z"
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "GoalScorer Integration",
+      "session_id": "ses_2624406c5ffe8baFafvL6VacuU",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-17T23:35:48.055Z"
+    },
+    "todo:8": {
+      "task_key": "todo:8",
+      "task_label": "8",
+      "task_title": "Drive State Tracking",
+      "session_id": "ses_262311a43ffel2EN6Tm3cs9qY2",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-17T23:41:46.412Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "Express Server Setup",
+      "session_id": "ses_262298836ffe2pJznOTz7rlpRR",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-17T23:56:30.828Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "WebSocket Endpoints",
+      "session_id": "ses_261cb7a07ffepYwIHCI5Q9y2F4",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-04-18T01:34:21.557Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "State API Endpoints",
+      "session_id": "ses_261c51d6cffeY6uAtevr1QRMne",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-18T02:05:53.301Z"
+    },
+    "todo:12": {
+      "task_key": "todo:12",
+      "task_label": "12",
+      "task_title": "Dashboard Process Launcher",
+      "session_id": "ses_261a82a4affej6Zg70nZ1rg54o",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-18T02:37:32.115Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "ses_261754fa6ffefxrj3fOJNKxReZ",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-18T03:33:02.791Z"
     }
   }
 }

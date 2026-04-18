@@ -1,0 +1,23 @@
+QA EVIDENCE: Task 3 - Dashboard WebSocket Broadcaster
+Date: 2026-04-18
+==========================================
+
+Scenario: Broadcaster sends state to connected clients
+Tool: Bash (node)
+Steps:
+1. Create WebSocketBroadcaster with throttleMs: 100
+2. Add mock WebSocket client
+3. Broadcast message
+4. Verify client received JSON
+Result: Broadcast sent successfully, mock client received data
+VERDICT: PASS
+
+Scenario: Throttling prevents flooding
+Tool: Bash (node)
+Steps:
+1. Create broadcaster with throttleMs: 100 (max 10/sec)
+2. Add mock client
+3. Broadcast 100 messages rapidly
+4. Count actual sends: 1 (first burst, subsequent throttled)
+Result: Sends after 100 rapid broadcasts: 1 (throttled to max 10/second)
+VERDICT: PASS

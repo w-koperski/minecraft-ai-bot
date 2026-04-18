@@ -1,0 +1,19 @@
+QA EVIDENCE: Task 5 - DriveSystem Class
+Date: 2026-04-18
+==========================================
+
+Scenario: Low health increases survival drive
+Tool: Bash (node)
+Steps:
+1. DriveSystem with default personality
+2. computeDriveScores({health: 5, food: 10, inventory: []})
+Result: survival=98 > 70 threshold
+VERDICT: PASS
+
+Scenario: High curiosity trait increases exploration drive
+Tool: Bash (node)
+Steps:
+1. DriveSystem with {curiosity: 0.9}
+2. computeDriveScores({health: 20, unexploredBiomes: 5})
+Result: curiosity=92 > 60 threshold
+VERDICT: PASS

@@ -4,6 +4,12 @@
  * Runs as a separate process from the main bot for isolation.
  * Provides HTTP API and WebSocket broadcasting for dashboard clients.
  *
+ * WebSocket features:
+ * - Heartbeat/ping-pong for dead connection detection (30s ping, 5s pong timeout)
+ * - Sends current state immediately on client connect
+ * - Subscribes clients to broadcaster for state updates
+ * - Graceful client disconnect handling (removes from broadcaster, cleans up timers)
+ *
  * @module dashboard/server
  */
 
@@ -22,6 +28,8 @@ const WebSocketBroadcaster = require('./broadcaster');
 const PORT = parseInt(process.env.DASHBOARD_PORT) || 3001;
 const HOST = process.env.DASHBOARD_HOST || 'localhost';
 
+const HEARTBEAT_INTERVAL_MS = parseInt(process.env.WS_HEARTBEAT_INTERVAL_MS) || 30000;
+
 // Track server state
 let server = null;
 let wss = null;
@@ -36,6 +44,55 @@ let botStatus = {
   goal: null,
   connectedClients: 0
 };
+
+/**
+ * Set up heartbeat/ping-pong for a WebSocket client
+ * Sends ping every HEARTBEAT_INTERVAL_MS, terminates if no pong within HEARTBEAT_TIMEOUT_MS
+ * @param {WebSocket} ws - WebSocket client
+ */
+function setupHeartbeat(ws) {
+  let isAlive = true;
+  let heartbeatTimer = null;
+
+  ws.on('pong', () => {
+    isAlive = true;
+  });
+
+  heartbeatTimer = setInterval(() => {
+    if (ws.readyState !== WebSocket.OPEN) {
+      clearInterval(heartbeatTimer);
+      return;
+    }
+
+    if (!isAlive) {
+      logger.warn('WebSocket client heartbeat timeout, terminating', {
+        readyState: ws.readyState
+      });
+      clearInterval(heartbeatTimer);
+      ws.terminate();
+      return;
+    }
+
+    isAlive = false;
+    ws.ping();
+  }, HEARTBEAT_INTERVAL_MS);
+
+  ws.on('close', () => {
+    isAlive = false;
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  });
+
+  ws.on('error', () => {
+    isAlive = false;
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  });
+}
 
 /**
  * Create and configure Express app
@@ -81,6 +138,127 @@ function createApp() {
     });
   });
 
+  // GET /api/drives - Drive scores endpoint
+  app.get('/api/drives', async (req, res) => {
+    try {
+      const StateManager = require('../utils/state-manager');
+      const stateManager = new StateManager();
+      const driveScores = await stateManager.getDriveScores();
+
+      if (!driveScores) {
+        return res.status(200).json({
+          survival: 50,
+          curiosity: 50,
+          competence: 50,
+          social: 50,
+          goalOriented: 50,
+          _note: 'No drive data available, returning defaults'
+        });
+      }
+
+      res.json(driveScores);
+    } catch (error) {
+      logger.error('Failed to get drive scores', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve drive scores' });
+    }
+  });
+
+  // GET /api/goals - Current and recent goals endpoint
+  app.get('/api/goals', async (req, res) => {
+    try {
+      const StateManager = require('../utils/state-manager');
+      const stateManager = new StateManager();
+      const state = await stateManager.read('state');
+      const commands = await stateManager.read('commands').catch(() => null);
+
+      const response = {
+        current: state?.goal || null,
+        recent: []
+      };
+
+      // Try to get recent goals from commands history
+      if (commands && commands.history) {
+        response.recent = commands.history.slice(-10).map(h => ({
+          goal: h.goal,
+          timestamp: h.timestamp
+        }));
+      }
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Failed to get goals', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve goals' });
+    }
+  });
+
+  // GET /api/memory - Knowledge graph stats endpoint
+  app.get('/api/memory', async (req, res) => {
+    try {
+      const KnowledgeGraph = require('../memory/knowledge-graph');
+      const kg = new KnowledgeGraph();
+
+      // Try to load persisted graph
+      await kg.load();
+
+      const stats = kg.getStats();
+
+      // Get memory tier distribution
+      const tierStats = kg.getMemoryTierStats
+        ? kg.getMemoryTierStats()
+        : { stm: 0, episodic: 0, ltm: 0 };
+
+      res.json({
+        nodeCount: stats.nodeCount || 0,
+        edgeCount: stats.edgeCount || 0,
+        maxNodes: stats.maxNodes || 10000,
+        entitiesAdded: stats.entitiesAdded || 0,
+        relationsAdded: stats.relationsAdded || 0,
+        nodesEvicted: stats.nodesEvicted || 0,
+        memoryTiers: tierStats
+      });
+    } catch (error) {
+      logger.error('Failed to get memory stats', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve memory stats' });
+    }
+  });
+
+  // GET /api/metrics - Performance metrics endpoint
+  app.get('/api/metrics', async (req, res) => {
+    try {
+      const StateManager = require('../utils/state-manager');
+      const ItemTracker = require('../metrics/item-tracker');
+      const stateManager = new StateManager();
+      const state = await stateManager.read('state');
+
+      // Create ItemTracker and restore from state if available
+      const itemTracker = new ItemTracker();
+      if (state && state.itemTracking) {
+        // Restore item tracking from state
+        for (const [itemName, timestamp] of Object.entries(state.itemTracking)) {
+          itemTracker.track(itemName, timestamp);
+        }
+      }
+
+      const itemStats = itemTracker.getStats();
+
+      // Get action success rate from state if available
+      const actionSuccessRate = state?.metrics?.actionSuccessRate ?? null;
+      const itemsPerHour = itemStats.itemsPerHour || 0;
+
+      res.json({
+        actionSuccessRate: actionSuccessRate,
+        itemsPerHour: itemsPerHour,
+        uniqueItemsCollected: itemStats.uniqueItems || 0,
+        techTreeLevel: itemStats.techTreeLevel || 'wood_age',
+        sessionDuration: itemStats.sessionDuration || 0,
+        milestones: itemTracker.getMilestones ? itemTracker.getMilestones() : []
+      });
+    } catch (error) {
+      logger.error('Failed to get metrics', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve metrics' });
+    }
+  });
+
   return app;
 }
 
@@ -93,7 +271,7 @@ function createServer() {
   server = http.createServer(app);
 
   // Initialize WebSocket server
-  wss = new WebSocket.Server({ server });
+  wss = new WebSocket.Server({ server, path: '/ws' });
 
   // Initialize broadcaster
   broadcaster = new WebSocketBroadcaster({ throttleMs: 100 });
@@ -103,16 +281,31 @@ function createServer() {
     const clientIp = req.socket.remoteAddress;
     logger.info('WebSocket client connected', { clientIp });
 
-    // Add client to broadcaster
+    setupHeartbeat(ws);
+
     broadcaster.addClient(ws);
 
-    // Send initial status
-    ws.send(JSON.stringify({
-      type: 'status',
-      data: botStatus
-    }));
+    sendCurrentState(ws);
 
-    // Update client count
+    ws.on('close', (code, reason) => {
+      logger.info('WebSocket client disconnected', {
+        clientIp,
+        code,
+        reason: reason.toString()
+      });
+      broadcaster.removeClient(ws);
+      botStatus.connectedClients = broadcaster.getClientCount();
+    });
+
+    ws.on('error', (error) => {
+      logger.error('WebSocket client error', {
+        clientIp,
+        error: error.message
+      });
+      broadcaster.removeClient(ws);
+      botStatus.connectedClients = broadcaster.getClientCount();
+    });
+
     botStatus.connectedClients = broadcaster.getClientCount();
   });
 
@@ -120,6 +313,53 @@ function createServer() {
   startStatusBroadcast();
 
   return server;
+}
+
+/**
+ * Send current state to a newly connected client
+ * Reads from state file and sends both state and botStatus
+ * @param {WebSocket} ws - WebSocket client
+ */
+async function sendCurrentState(ws) {
+  if (ws.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  const initialState = {
+    type: 'state',
+    data: {
+      ...botStatus,
+      connectedClients: broadcaster ? broadcaster.getClientCount() : 0,
+      timestamp: Date.now()
+    },
+    source: 'initial'
+  };
+
+  try {
+    const StateManager = require('../utils/state-manager');
+    const stateManager = new StateManager();
+    const stateData = await stateManager.read('state');
+
+    if (stateData) {
+      initialState.data = {
+        ...initialState.data,
+        position: stateData.position || botStatus.position,
+        health: stateData.health ?? botStatus.health,
+        inventory: stateData.inventory || [],
+        entities: stateData.entities || [],
+        blocks: stateData.blocks || [],
+        goal: stateData.goal || botStatus.goal
+      };
+    }
+  } catch (error) {
+    logger.debug('Could not read state file for initial state', { error: error.message });
+  }
+
+  try {
+    ws.send(JSON.stringify(initialState));
+  } catch (error) {
+    logger.error('Failed to send initial state to WebSocket client', { error: error.message });
+  }
 }
 
 /**
@@ -137,7 +377,7 @@ function startStatusBroadcast() {
         }
       });
     }
-  }, 1000); // Every second
+  }, 1000);
 }
 
 /**
@@ -159,19 +399,40 @@ async function loadBotStatusFromFile() {
     const fs = require('fs').promises;
     const path = require('path');
 
-    // Monitor state file for changes
     const statePath = path.join(process.cwd(), 'state', 'state.json');
 
     try {
       const data = await fs.readFile(statePath, 'utf8');
       const state = JSON.parse(data);
 
-      // Update status based on state file
-      if (state.health !== undefined) {
+      let changed = false;
+
+      if (state.health !== undefined && state.health !== botStatus.health) {
         botStatus.health = state.health;
+        changed = true;
       }
-      if (state.position) {
+      if (state.position && JSON.stringify(state.position) !== JSON.stringify(botStatus.position)) {
         botStatus.position = state.position;
+        changed = true;
+      }
+      if (state.inventory) {
+        botStatus.inventory = state.inventory;
+        changed = true;
+      }
+      if (state.goal !== undefined) {
+        botStatus.goal = state.goal;
+        changed = true;
+      }
+
+      if (changed && broadcaster && broadcaster.getClientCount() > 0) {
+        broadcaster.broadcast({
+          type: 'state_update',
+          data: {
+            ...botStatus,
+            connectedClients: broadcaster.getClientCount(),
+            timestamp: Date.now()
+          }
+        });
       }
     } catch (err) {
       // State file may not exist yet, ignore
@@ -287,7 +548,7 @@ async function main() {
       endpoints: [
         `http://${HOST}:${PORT}/api/health`,
         `http://${HOST}:${PORT}/api/status`,
-        `ws://${HOST}:${PORT}`
+        `ws://${HOST}:${PORT}/ws`
       ]
     });
 
@@ -305,10 +566,12 @@ if (require.main === module) {
   });
 }
 
-// Export for testing
 module.exports = {
   createApp,
   createServer,
   updateBotStatus,
-  gracefulShutdown
+  gracefulShutdown,
+  setupHeartbeat,
+  sendCurrentState,
+  HEARTBEAT_INTERVAL_MS
 };

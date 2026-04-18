@@ -1,0 +1,70 @@
+{
+  "timestamp": "2026-04-15T22:30:42.916Z",
+  "model": "MicahB/emotion_text_classifier",
+  "model_used_note": "boltuix/bert-emotion had loading issues (tokenizer.json 401 error). MicahB/emotion_text_classifier works correctly with transformers.js",
+  "samples_tested": 20,
+  "correct_detections": 11,
+  "accuracy_percent": 55,
+  "latency": {
+    "average_ms": 9.3,
+    "p50_ms": 9.25,
+    "p95_ms": 13.95,
+    "p99_ms": 13.95,
+    "max_ms": 13.95
+  },
+  "requirements": {
+    "p99_under_50ms": true,
+    "accuracy_above_70percent": false
+  },
+  "emotion_breakdown": {
+    "joy": { "correct": 6, "total": 6, "rate": "100%" },
+    "fear": { "correct": 2, "total": 2, "rate": "100%" },
+    "sadness": { "correct": 1, "total": 2, "rate": "50%" },
+    "neutral": { "correct": 1, "total": 3, "rate": "33%" },
+    "anger": { "correct": 1, "total": 3, "rate": "33%" },
+    "surprise": { "correct": 0, "total": 4, "rate": "0%" }
+  },
+  "game_jargon_analysis": {
+    "gg": "Detected correctly as joy",
+    "brb": "Detected correctly as neutral",
+    "noob": "Model struggles - detects as neutral instead of disgust/anger",
+    "lol": "Model struggles - detects as neutral instead of joy"
+  },
+  "key_findings": [
+    "Model has 100% accuracy on joy and fear emotions",
+    "Surprise emotion has 0% accuracy - often confused with joy or anger",
+    "Disgust emotion not in model's label set - mapped to other emotions",
+    "Minecraft game jargon (gg, brb) works well",
+    "Sarcasm detection is poor (expected for generic emotion models)",
+    "Low confidence predictions (<70%) often incorrect"
+  ],
+  "recommendations": [
+    "Use confidence threshold >0.7 for actionable detections",
+    "Consider fine-tuning on Minecraft chat data for better accuracy",
+    "Map surprise+excitement to joy when confidence is high",
+    "Add context (player health, recent events) to improve accuracy",
+    "Emotion label mapping: disgust->anger, surprise->joy/anger based on context"
+  ],
+  "results": [
+    { "id": 1, "message": "Hey everyone! Welcome to the server!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.891, "latency_ms": 13.95, "correct": true },
+    { "id": 2, "message": "gg that was an amazing game!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.96, "latency_ms": 7.75, "correct": true },
+    { "id": 3, "message": "OMG I finally found diamonds after HOURS of mining!", "expected_emotion": "joy", "detected_emotion": "surprise", "confidence": 0.679, "latency_ms": 10.35, "correct": false },
+    { "id": 4, "message": "This is so frustrating, I've died 5 times already", "expected_emotion": "anger", "detected_emotion": "sadness", "confidence": 0.968, "latency_ms": 9.84, "correct": false },
+    { "id": 5, "message": "Are you serious? Another creeper explosion?!", "expected_emotion": "anger", "detected_emotion": "surprise", "confidence": 0.92, "latency_ms": 9.49, "correct": false },
+    { "id": 6, "message": "ugh, my base got raided again", "expected_emotion": "sadness", "detected_emotion": "surprise", "confidence": 0.543, "latency_ms": 8.22, "correct": false },
+    { "id": 7, "message": "I'm so bored, nothing to do here", "expected_emotion": "sadness", "detected_emotion": "sadness", "confidence": 0.864, "latency_ms": 9.56, "correct": true },
+    { "id": 8, "message": "brb making dinner, don't die while I'm gone", "expected_emotion": "neutral", "detected_emotion": "neutral", "confidence": 0.935, "latency_ms": 10.34, "correct": true },
+    { "id": 9, "message": "Stop being such a noob and learn to fight", "expected_emotion": "disgust", "detected_emotion": "neutral", "confidence": 0.658, "latency_ms": 9.9, "correct": false },
+    { "id": 10, "message": "Oh wow, another griefed builds, how original", "expected_emotion": "disgust", "detected_emotion": "surprise", "confidence": 0.915, "latency_ms": 9.11, "correct": false },
+    { "id": 11, "message": "Good luck have fun all you newbies!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.916, "latency_ms": 8.8, "correct": true },
+    { "id": 12, "message": "Watch out for the dragon, it's going to explode!", "expected_emotion": "fear", "detected_emotion": "fear", "confidence": 0.532, "latency_ms": 9.67, "correct": true },
+    { "id": 13, "message": "NOOOO my enchanted diamond armor!", "expected_emotion": "fear", "detected_emotion": "anger", "confidence": 0.947, "latency_ms": 8.11, "correct": false },
+    { "id": 14, "message": "Thanks for the help with the farm, you're the best!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.975, "latency_ms": 10.5, "correct": true },
+    { "id": 15, "message": "I can't believe you stole my stuff,Reported", "expected_emotion": "anger", "detected_emotion": "anger", "confidence": 0.788, "latency_ms": 9.25, "correct": true },
+    { "id": 16, "message": "nice house lol looks like a dirt hut", "expected_emotion": "joy", "detected_emotion": "neutral", "confidence": 0.618, "latency_ms": 7.89, "correct": false },
+    { "id": 17, "message": "Let's go mining at level 12!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.876, "latency_ms": 7.87, "correct": true },
+    { "id": 18, "message": "I'm scared of the Nether, it's too dangerous", "expected_emotion": "fear", "detected_emotion": "fear", "confidence": 0.816, "latency_ms": 9.13, "correct": true },
+    { "id": 19, "message": "Whatever, I don't care about your opinions", "expected_emotion": "disgust", "detected_emotion": "anger", "confidence": 0.577, "latency_ms": 8.66, "correct": false },
+    { "id": 20, "message": "Good game everyone, that was intense!", "expected_emotion": "joy", "detected_emotion": "joy", "confidence": 0.952, "latency_ms": 7.6, "correct": true }
+  ]
+}

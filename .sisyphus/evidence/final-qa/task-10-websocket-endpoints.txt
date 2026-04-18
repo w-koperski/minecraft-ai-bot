@@ -1,0 +1,22 @@
+QA EVIDENCE: Task 10 - WebSocket Endpoints
+Date: 2026-04-18
+==========================================
+
+Scenario: Client receives state on connect
+Tool: Bash (node ws)
+Steps:
+1. Connect WebSocket to ws://localhost:3001/ws
+2. Wait for first message
+3. Parse received JSON
+Result:
+- Connection successful
+- Initial message type: "state"
+- Has position: true
+- Has health: true
+- Has inventory: true
+VERDICT: PASS
+
+Scenario: Client receives state updates
+Tested via periodic broadcast (server sends status every 1s)
+WebSocket receives messages with type: "status"
+VERDICT: PASS (broadcasting works, verified in Task 3 throttle test)

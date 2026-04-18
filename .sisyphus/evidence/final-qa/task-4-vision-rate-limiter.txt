@@ -1,0 +1,18 @@
+QA EVIDENCE: Task 4 - Vision Rate Limiter
+Date: 2026-04-18
+==========================================
+
+Scenario: Rate limiter enforces 20 RPM default
+Tool: Bash (node)
+Steps:
+1. Load vision-rate-limiter (no env var)
+2. Check reservoir property
+Result: Default reservoir: 20
+VERDICT: PASS
+
+Scenario: Custom RPM budget via env var
+Tool: Bash (node)
+Steps:
+1. VISION_RPM_BUDGET=10 node -e "const vrl = require('./src/vision/vision-rate-limiter'); ..."
+Result: reservoir: 10
+VERDICT: PASS

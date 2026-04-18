@@ -1,0 +1,32 @@
+Task 10: WebSocket Endpoints - QA Evidence
+===============================================
+
+Test Results: 15/15 PASSED
+
+Scenario: Client receives state on connect
+- Connected wscat client to ws://localhost:3001/ws
+- Verified client receives JSON message with type='state', source='initial'
+- Verified message contains: status, health, position, connectedClients, timestamp
+- Result: PASS
+
+Scenario: Client receives state updates
+- Connected client, triggered updateBotStatus({ health: 15 })
+- Verified client receives update message with health: 15
+- Result: PASS
+
+Heartbeat Tests:
+- Registers pong, close, and error event handlers: PASS
+- Sends ping after heartbeat interval (30s default): PASS
+- Terminates connection when no pong received: PASS
+- Pong response keeps connection alive: PASS
+- Cleans up heartbeat timer on close: PASS
+- Cleans up heartbeat timer on error: PASS
+
+sendCurrentState Tests:
+- Sends state message with botStatus data: PASS
+- Does not send if websocket is not open: PASS
+- Includes inventory, entities, blocks when state file exists: PASS
+
+Multi-client Tests:
+- Multiple clients can connect simultaneously: PASS
+- All connected clients receive state updates via broadcaster: PASS (via periodic broadcast)

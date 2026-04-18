@@ -1,0 +1,44 @@
+# QA Evidence: vision-rate-limiter.js (Task 4)
+
+## Scenario 1: Rate limiter enforces 20 RPM default
+
+### Test Setup
+- Loaded vision-rate-limiter with default 20 RPM
+- Scheduled 25 tasks sequentially
+- Measured time to complete all tasks
+
+### Results
+```
+Tasks 1-20: Started immediately (reservoir=20)
+Task 21-25: Waited for reservoir refresh (~60s later)
+Depleted warning logged at correct time
+Total time: ~60 seconds
+```
+
+### Evidence
+```
+Task 1 at 14 ms
+...
+Task 20 at 82 ms
+[warn] Vision rate limit reservoir depleted, waiting for refresh {"rpm":20}
+Task 21 at 60072 ms
+...
+Task 25 at 60088 ms
+Completed 25 tasks in: 60090ms
+```
+
+### Status: PASS
+Rate limiting works as expected - reservoir depletes after 20 requests, then refreshes after 60 seconds.
+
+## Scenario 2: Custom RPM via env var
+
+### Test Command
+```bash
+VISION_RPM_BUDGET=10 node -e "const vrl = require('./src/vision/vision-rate-limiter'); console.log(vrl.reservoir)"
+```
+
+### Expected: 10
+### Actual: 10
+
+### Status: PASS
+Custom RPM budget env var is correctly parsed and applied.

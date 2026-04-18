@@ -1,0 +1,26 @@
+total 164
+drwxrwxr-x 8 seryki seryki  4096 Apr 18 03:33 .
+drwxrwxr-x 6 seryki seryki  4096 Apr 18 03:09 ..
+-rw-rw-r-- 1 seryki seryki    21 Apr 18 03:33 BUILD_ID
+-rw-rw-r-- 1 seryki seryki   138 Apr 18 03:33 app-path-routes-manifest.json
+-rw-rw-r-- 1 seryki seryki   503 Apr 18 03:33 build-manifest.json
+drwxrwxr-x 2 seryki seryki  4096 Apr 18 03:20 cache
+drwxrwxr-x 7 seryki seryki  4096 Apr 18 03:33 dev
+drwxrwxr-x 2 seryki seryki  4096 Apr 18 03:33 diagnostics
+-rw-rw-r-- 1 seryki seryki   111 Apr 18 03:33 export-marker.json
+-rw-rw-r-- 1 seryki seryki   299 Apr 18 03:33 fallback-build-manifest.json
+-rw-rw-r-- 1 seryki seryki  1193 Apr 18 03:33 images-manifest.json
+-rw-rw-r-- 1 seryki seryki  9451 Apr 18 03:33 next-minimal-server.js.nft.json
+-rw-rw-r-- 1 seryki seryki 45426 Apr 18 03:33 next-server.js.nft.json
+-rw-rw-r-- 1 seryki seryki    20 Apr 18 03:33 package.json
+-rw-rw-r-- 1 seryki seryki  3062 Apr 18 03:33 prerender-manifest.json
+-rw-rw-r-- 1 seryki seryki  9318 Apr 18 03:33 required-server-files.js
+-rw-rw-r-- 1 seryki seryki  9289 Apr 18 03:33 required-server-files.json
+-rw-rw-r-- 1 seryki seryki  1723 Apr 18 03:33 routes-manifest.json
+drwxrwxr-x 5 seryki seryki  4096 Apr 18 03:33 server
+drwxrwxr-x 5 seryki seryki  4096 Apr 18 03:33 static
+-rw-rw-r-- 1 seryki seryki  5671 Apr 18 03:33 trace
+-rw-rw-r-- 1 seryki seryki  1203 Apr 18 03:33 trace-build
+-rw-rw-r-- 1 seryki seryki     0 Apr 18 03:33 turbopack
+drwxrwxr-x 2 seryki seryki  4096 Apr 18 03:33 types
+✓ Production build completed successfully

@@ -1,0 +1,32 @@
+QA EVIDENCE: Task 2 - KnowledgeGraph Persistence
+Date: 2026-04-18
+==========================================
+
+Scenario: Save and load graph preserves data
+Tool: Bash (node)
+Steps:
+1. Create KnowledgeGraph, add entity 'test_entity' with type 'test_type'
+2. Call save()
+3. Create new KnowledgeGraph instance, call load()
+4. Assert getEntity('test_entity').type === 'test_type'
+Result: 
+- Entity before save: {"id":"test_entity","type":"test_type","properties":{"description":"test desc"},...}
+- Save succeeded, Load result: true
+- Entity after load: {"id":"test_entity","type":"test_type","properties":{"description":"test desc"},...}
+VERDICT: PASS
+
+Scenario: Load handles missing file gracefully
+Tool: Bash (node)
+Steps:
+1. Remove knowledge-graph.json
+2. Create KnowledgeGraph, call load()
+3. No error thrown, returns false (empty graph)
+Result: "No existing knowledge-graph file, starting fresh"
+VERDICT: PASS
+
+Scenario: Load handles invalid JSON gracefully
+Steps:
+1. Write invalid JSON to knowledge-graph.json
+2. Call load() - returns false, logs error but no crash
+Result: "Failed to load KnowledgeGraph" error logged, load() returns false
+VERDICT: PASS
