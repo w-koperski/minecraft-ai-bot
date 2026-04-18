@@ -1,3 +1,7 @@
+import BotStatus from '@/components/BotStatus';
+import DriveViz from '@/components/DriveViz';
+import MemoryGraph from '@/components/MemoryGraph';
+
 export default function Home() {
   return (
     <div className="dashboard">
@@ -5,7 +9,9 @@ export default function Home() {
         <h1>Minecraft AI Bot Dashboard</h1>
       </header>
       <main className="main">
-        <p>Dashboard frontend initialized. Components coming in Tasks 14-16.</p>
+        <BotStatus />
+        <DriveViz />
+        <MemoryGraph />
       </main>
     </div>
   );

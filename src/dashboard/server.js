@@ -191,7 +191,7 @@ function createApp() {
     }
   });
 
-  // GET /api/memory - Knowledge graph stats endpoint
+  // GET /api/memory - Knowledge graph stats and visualization endpoint
   app.get('/api/memory', async (req, res) => {
     try {
       const KnowledgeGraph = require('../memory/knowledge-graph');
@@ -207,6 +207,32 @@ function createApp() {
         ? kg.getMemoryTierStats()
         : { stm: 0, episodic: 0, ltm: 0 };
 
+      const nodes = [];
+      const edges = [];
+
+      kg.graph.forEachNode((nodeId, attrs) => {
+        nodes.push({
+          id: nodeId,
+          type: attrs.type || 'unknown',
+          label: attrs.properties?.name || attrs.properties?.experience || attrs.properties?.subject || nodeId,
+          properties: attrs.properties || {},
+          validFrom: attrs.validFrom || null,
+          validUntil: attrs.validUntil || null,
+          createdAt: attrs.createdAt || null
+        });
+      });
+
+      kg.graph.forEachEdge((edge, attrs, source, target) => {
+        edges.push({
+          source,
+          target,
+          type: attrs.relationType || 'related_to',
+          metadata: attrs.metadata || {},
+          validFrom: attrs.validFrom || null,
+          validUntil: attrs.validUntil || null
+        });
+      });
+
       res.json({
         nodeCount: stats.nodeCount || 0,
         edgeCount: stats.edgeCount || 0,
@@ -214,7 +240,9 @@ function createApp() {
         entitiesAdded: stats.entitiesAdded || 0,
         relationsAdded: stats.relationsAdded || 0,
         nodesEvicted: stats.nodesEvicted || 0,
-        memoryTiers: tierStats
+        memoryTiers: tierStats,
+        nodes,
+        edges
       });
     } catch (error) {
       logger.error('Failed to get memory stats', { error: error.message });

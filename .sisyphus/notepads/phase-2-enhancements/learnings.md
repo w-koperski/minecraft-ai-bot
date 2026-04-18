@@ -184,3 +184,153 @@ the exact specification: personality 30%, needs 25%, events 25%, drives 20%.
 ### Evidence saved
 - `.sisyphus/evidence/task-13-dev-server.txt` - Dev server QA results
 - `.sisyphus/evidence/task-13-build.txt` - Build QA results
+
+## [2026-04-18T03:34:00Z] Task 13: Next.js Project Setup
+
+### Implementation
+- Created `src/dashboard/frontend/` with Next.js 16.2.4 + React 19.2.4
+- Used `create-next-app@latest` with TypeScript and App Router (not Pages Router)
+- Added npm scripts to root package.json: `dev:dashboard`, `build:dashboard`
+- Basic landing page shows "Minecraft AI Bot Dashboard"
+- Frontend runs on port 3000 (backend on 3001)
+
+### Key Design Decisions
+- **Next.js 16.2.4**: Latest stable with Turbopack for faster builds
+- **App Router**: Modern Next.js pattern (not Pages Router)
+- **TypeScript**: Type safety for dashboard components
+- **Separate package.json**: Frontend has its own dependencies, isolated from main project
+
+### QA Results
+- Dev server starts successfully on port 3000 ✓
+- Production build completes without errors ✓
+- Page loads with "Minecraft AI Bot Dashboard" heading ✓
+- Build artifacts in .next/ directory ✓
+
+### Gotchas
+- Turbopack warning about multiple lockfiles (expected, can be silenced in next.config.ts)
+- Frontend node_modules should be in .gitignore (already added)
+- Dev server takes ~750ms to start (acceptable for development)
+
+### Evidence saved
+- `.sisyphus/evidence/task-13-dev-server.txt` - Dev server QA results
+- `.sisyphus/evidence/task-13-build.txt` - Production build QA results
+
+## [2026-04-18] Task 14: Real-time State Display
+
+### Implementation
+- Created `src/dashboard/frontend/lib/types.ts` - TypeScript interfaces for BotState, WSMessage, ConnectionState, etc.
+- Created `src/dashboard/frontend/hooks/useWebSocket.ts` - WebSocket hook with auto-reconnect (exponential backoff 1s→30s)
+- Created `src/dashboard/frontend/components/BotStatus.tsx` - Real-time status display component
+- Created `src/dashboard/frontend/components/BotStatus.module.css` - CSS Module styles
+- Updated `app/page.tsx` to use BotStatus component
+- Updated `app/globals.css` with dashboard layout styles
+- Removed unused `app/page.module.css`
+
+### State Shape (from backend WebSocket)
+- Initial message: `{ type: 'state', source: 'initial', data: {...botStatus, position, health, inventory, goal} }`
+- Updates: `{ type: 'state_update', data: {...botStatus, timestamp} }`
+- Periodic: `{ type: 'status', data: {...botStatus, timestamp} }` (1s interval)
+- botStatus: `{ status: 'idle'|'active'|'danger'|'disconnected', health: 0-20, position: {x,y,z}, goal: string|null, connectedClients, inventory: [{name,count}] }`
+
+### Key Design Decisions
+- **CSS Modules**: Used `.module.css` for component-scoped styles (BotStatus.module.css), globals.css for layout
+- **Design tokens**: Extended existing `--background`, `--foreground`, `--accent`, `--muted`, `--border` CSS vars
+- **Component composition**: Separate sub-components (ConnectionBanner, StatusBadge, PositionDisplay, HealthBar, InventoryList, GoalDisplay)
+- **WebSocket hook**: Singleton pattern via ref, auto-reconnect with exponential backoff (1s→2s→4s→8s→...→30s max)
+- **State merging**: WebSocket state is merged incrementally using spread operator, preserving previous values
+
+### Reconnection Strategy
+- On connect: reset backoff to 1s
+- On disconnect/error: schedule reconnect with current backoff
+- Backoff doubles each attempt: 1s → 2s → 4s → 8s → 16s → 30s (max)
+- Cleanup: on unmount, close ws, clear timer, set mountedRef=false
+
+### Build Verification
+- `npm run build:dashboard` → ✓ Compiled successfully in 4.4s
+- TypeScript check: ✓ Finished in 4.6s
+- Static generation: 4/4 pages in 731ms
+
+### Gotchas
+- Health in Minecraft is 0-20 scale (20 = full health), not 0-100
+- Empty catch blocks need comments (no-empty lint rule) - documented reason as intentional
+- Next.js 16 AGENTS.md warns about breaking changes - standard 'use client' and App Router patterns work fine
+
+## [2026-04-18] Task 15: Drive Visualization (DriveViz)
+
+### Implementation
+- Added `driveScores?: Record<string, number>` to BotState interface in `lib/types.ts`
+- Created `components/DriveViz.tsx` - Client component using useWebSocket hook
+- Created `components/DriveViz.module.css` - CSS Module with gradient bar styles
+- Integrated DriveViz into `app/page.tsx` alongside BotStatus
+- Updated `app/globals.css` - changed `.main` to `flex-wrap: wrap` for side-by-side layout
+
+### Drive Colors (semantically chosen)
+- survival: red (#f87171 / #dc2626) - danger/health
+- curiosity: purple (#c084fc / #9333ea) - exploration/mystery
+- competence: blue (#60a5fa / #2563eb) - skill/knowledge
+- social: amber (#fbbf24 / #d97706) - warmth/people
+- goalOriented: green (#4ade80 / #16a34a) - achievement/completion
+
+### Design Decisions
+- DRIVE_ORDER constant ensures consistent display order regardless of object key order
+- DRIVE_CONFIG maps keys to display labels (e.g., goalOriented → "Goal-Oriented")
+- Bar transition uses `cubic-bezier(0.22, 1, 0.36, 1)` for smooth deceleration on value changes
+- Gradient bars go from saturated → lighter (left to right) for visual depth
+- Empty state shows "No drive data" when driveScores is missing or empty
+- Score values clamped 0-100 with defensive Math.min/Math.max
+- Missing drive keys default to 0 score (ensures all 5 bars always render)
+
+### Build Verification
+- `npm run build:dashboard` ✓ Compiled in 4.3s
+- TypeScript check: ✓ Finished in 4.5s
+- Static generation: 4/4 pages in 740ms
+
+### Gotchas
+- `driveScores` is optional on BotState since it only exists when ENABLE_DRIVES=true on backend
+- The DriveViz component uses separate useWebSocket() call (same hook, separate subscription)
+
+## [2026-04-18] Task 16: Memory Graph Viewer
+
+### Implementation
+- Created `MemoryGraph.tsx` and `MemoryGraphCanvas.tsx` - interactive force-directed graph visualization
+- Created `MemoryGraph.module.css` - dark-themed styles matching dashboard design tokens
+- Extended `/api/memory` backend endpoint to include `nodes` and `edges` arrays for visualization
+- Added `MemoryGraphNode`, `MemoryGraphEdge`, `MemoryGraphData` types to `lib/types.ts`
+- Integrated into `page.tsx` alongside existing BotStatus and DriveViz components
+- Added responsive grid layout in `globals.css` for wider viewports
+
+### Key Design Decisions
+- **Dynamic import for SSR**: `react-force-graph-2d` requires `window` at import time, crashes during Next.js SSR. Solution: Split into `MemoryGraphCanvas.tsx` (renders ForceGraph2D) loaded via `next/dynamic({ ssr: false })`. The parent `MemoryGraph.tsx` handles data fetching and state management (safe for SSR).
+- **API extension**: Extended existing `/api/memory` endpoint (was stats-only) to also return `nodes` and `edges` arrays. Uses `kg.graph.forEachNode()` and `kg.graph.forEachEdge()` from graphology.
+- **Node color mapping**: 9 node type colors for spatial/temporal/episodic/semantic memory, player, item, location, spatial_index, and unknown. Matches Minecraft aesthetic (#4ade80 green accent).
+- **Auto-refresh**: Fetches graph data every 30 seconds via REST API `/api/memory`
+- **Tooltip system**: Simplified from absolute-position HTML to fixed-position overlay showing node/link details on hover. Avoids complex coordinate transformations with force simulation.
+
+### Component Architecture
+- `MemoryGraph.tsx`: Data fetching, loading/error/empty states, layout and legend
+- `MemoryGraphCanvas.tsx`: Pure rendering - receives data as props, renders ForceGraph2D (dynamically imported, no SSR)
+- Separation enables: parent renders HTML states (loading, empty, error) during SSR, canvas only loads client-side
+
+### Graph Data Format
+```
+Backend response: {
+  nodeCount, edgeCount, maxNodes, entitiesAdded, relationsAdded, nodesEvicted,
+  memoryTiers: { stm, episodic, ltm },
+  nodes: [{ id, type, label, properties, validFrom, validUntil, createdAt }],
+  edges: [{ source, target, type, metadata, validFrom, validUntil }]
+}
+```
+
+### Node Labels
+- `label` derived from: `properties.name` > `properties.experience` > `properties.subject` > `id`
+- Falls back to `id` (which is like `spatial_spawn_point_1234567890`)
+
+### Build Gotchas
+- `react-force-graph-2d` accesses `window` at module load time → Must use `next/dynamic({ ssr: false })`
+- Initial build failed with `ReferenceError: window is not defined` during static page generation
+- Fix: Create separate `MemoryGraphCanvas.tsx` that only imports ForceGraph2D, dynamically import it from parent
+
+### Evidence Files Needed
+- `.sisyphus/evidence/task-16-graph-display.txt` - Graph displays with nodes/edges
+- `.sisyphus/evidence/task-16-hover-interaction.txt` - Hover tooltips work
+- `.sisyphus/evidence/task-16-empty-graph.txt` - Graceful empty state

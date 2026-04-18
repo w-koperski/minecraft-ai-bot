@@ -1,0 +1,258 @@
+.status {
+  --status-idle: #4ade80;
+  --status-active: #60a5fa;
+  --status-danger: #f87171;
+  --status-disconnected: #71717a;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 640px;
+  width: 100%;
+  padding: 24px;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.connectionBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.connectionBannerConnecting {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.3);
+  color: #fbbf24;
+}
+
+.connectionBannerConnected {
+  background: rgba(74, 222, 128, 0.06);
+  border-color: rgba(74, 222, 128, 0.2);
+  color: var(--accent);
+}
+
+.connectionBannerDisconnected {
+  background: rgba(248, 113, 113, 0.06);
+  border-color: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.connectionBannerError {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.connectionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.connectionDotConnecting {
+  background: #fbbf24;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.connectionDotConnected {
+  background: var(--accent);
+}
+
+.connectionDotDisconnected {
+  background: var(--status-disconnected);
+}
+
+.connectionDotError {
+  background: #f87171;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusText {
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.statusIdle { color: var(--status-idle); }
+.statusActive { color: var(--status-active); }
+.statusDanger { color: var(--status-danger); }
+.statusDisconnected { color: var(--status-disconnected); }
+
+.positionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.posItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.posLabel {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.posValue {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--foreground);
+  margin-top: 2px;
+}
+
+.healthBarContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.healthLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.healthValue {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--foreground);
+}
+
+.healthMax {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.healthBar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.healthBarFill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.healthHigh { background: var(--status-idle); }
+.healthMedium { background: #fbbf24; }
+.healthLow { background: var(--status-danger); }
+
+.goalText {
+  font-size: 16px;
+  color: var(--foreground);
+  line-height: 1.5;
+}
+
+.goalEmpty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.inventoryList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.inventoryItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.itemName {
+  color: var(--foreground);
+}
+
+.itemCount {
+  font-weight: 600;
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--accent);
+}
+
+.inventoryEmpty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 14px;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+  color: var(--muted);
+}
+
+.loadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.clientsInfo {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
