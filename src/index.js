@@ -32,6 +32,8 @@ const Strategy = require('./layers/strategy');
 const Commander = require('./layers/commander');
 const KnowledgeGraph = require('./memory/knowledge-graph');
 const ReflectionModule = require('./learning/reflection-module');
+const featureFlags = require('./utils/feature-flags');
+const { getInstance: getDriveSystem } = require('./drives/drive-system');
 
 // Track shutdown state
 let isShuttingDown = false;
@@ -42,6 +44,7 @@ let commander = null;
 let knowledgeGraph = null;
 let consolidationTimer = null;
 let reflectionTimer = null;
+let driveTimer = null;
 let dashboardProcess = null;
 
 /**
@@ -215,7 +218,43 @@ bot.on('end', (reason) => {
     clearInterval(reflectionTimer);
     reflectionTimer = null;
   }
+  if (driveTimer) {
+    clearInterval(driveTimer);
+    driveTimer = null;
+  }
 });
+}
+
+/**
+ * Build context object for DriveSystem from current bot state
+ */
+function buildDriveContext(botInstance) {
+  const health = botInstance?.health ?? 20;
+  const food = botInstance?.food ?? 20;
+  const inventory = botInstance?.inventory?.items() ?? [];
+  const entityKeys = botInstance?.entities ? Object.keys(botInstance.entities) : [];
+
+  let playerProximity = Infinity;
+  for (const key of entityKeys) {
+    const entity = botInstance.entities[key];
+    if (entity.type === 'player' && entity.username !== botInstance?.username) {
+      const dist = botInstance.entity.position.distanceTo(entity.position);
+      if (dist < playerProximity) {
+        playerProximity = dist;
+      }
+    }
+  }
+
+  return {
+    health,
+    food,
+    inventory: inventory.map(item => ({ name: item.name, count: item.count })),
+    recentEvents: [],
+    playerProximity,
+    unexploredBiomes: 0,
+    dangerLevel: 0,
+    currentGoal: null
+  };
 }
 
 /**
@@ -307,6 +346,26 @@ if (actionAwareness) {
     });
   }, reflectionInterval);
 }
+
+// Initialize DriveSystem if feature flag is enabled
+if (featureFlags.isEnabled('DRIVES')) {
+  const driveSystem = getDriveSystem();
+  const driveInterval = parseInt(process.env.DRIVE_INTERVAL_MS) || 5000;
+
+  logger.info('Starting drive computation timer', { intervalMs: driveInterval });
+
+  driveTimer = setInterval(() => {
+    setImmediate(async () => {
+      try {
+        const context = buildDriveContext(bot);
+        const scores = driveSystem.computeDriveScores(context);
+        await stateManager.setDriveScores(scores);
+      } catch (error) {
+        logger.error('Drive computation failed', { error: error.message });
+      }
+    });
+  }, driveInterval);
+}
 }
 
 /**
@@ -341,6 +400,12 @@ async function gracefulShutdown(signal) {
 if (pilot) {
     logger.info('Stopping Pilot layer...');
     await pilot.stop();
+  }
+
+  if (driveTimer) {
+    logger.info('Stopping drive computation timer...');
+    clearInterval(driveTimer);
+    driveTimer = null;
   }
 
   // Stop dashboard process if running

@@ -334,3 +334,56 @@ Backend response: {
 - `.sisyphus/evidence/task-16-graph-display.txt` - Graph displays with nodes/edges
 - `.sisyphus/evidence/task-16-hover-interaction.txt` - Hover tooltips work
 - `.sisyphus/evidence/task-16-empty-graph.txt` - Graceful empty state
+
+## [2026-04-18] Task 17: DriveSystem → Dashboard Integration
+
+### What was done
+1. **Integrated DriveSystem into `src/index.js`**:
+   - Added imports: `featureFlags` and `getDriveSystem` from drive-system
+   - Added module-level `driveTimer` variable for cleanup tracking
+   - Added `buildDriveContext(botInstance)` function that extracts bot state (health, food, inventory, playerProximity, etc.)
+   - Added DriveSystem initialization in `initializeLayers()`, gated by `featureFlags.isEnabled('DRIVES')`
+   - Periodic drive computation every 5s (configurable via `DRIVE_INTERVAL_MS` env var)
+   - Scores written to state via `stateManager.setDriveScores(scores)`
+   - Clean shutdown: timer cleared in both `bot.on('end')` and `gracefulShutdown()`
+
+2. **Updated `src/dashboard/server.js`** to broadcast driveScores:
+   - Added `driveScores: null` to initial `botStatus` object
+   - Added `driveScores` to `sendCurrentState()` (reads from state file)
+   - Added `driveScores` tracking in `loadBotStatusFromFile()` (detects changes, broadcasts via WebSocket)
+
+### Data Flow (End-to-End)
+```
+Bot spawns → initializeLayers() → if ENABLE_DRIVES=true:
+  DriveSystem.computeDriveScores(context) → StateManager.setDriveScores(scores) → state/state.json
+                                                                            ↓ (polled every 2s)
+  Dashboard server: loadBotStatusFromFile() → detects driveScores change → broadcaster.broadcast({type:'state_update', data:{driveScores}})
+                                                                            ↓ (WebSocket)
+  Frontend: useWebSocket() → merges message.data into BotState → {driveScores: {survival, curiosity, competence, social, goalOriented}}
+                                                                            ↓
+  DriveViz: reads state.driveScores → renders 5 bar charts with real scores
+```
+
+### Feature Flag
+- `ENABLE_DRIVES=true` required to activate drive computation
+- When disabled: no timer, no scores written, dashboard shows "No drive data"
+- Other feature flags that depend on DRIVES: ENABLE_META_LEARNING, ENABLE_AUTONOMOUS_GOALS (they warn but don't block)
+
+### buildDriveContext() Details
+- `health`: from `bot.health` (0-20 Minecraft scale, defaults to 20)
+- `food`: from `bot.food` (0-20 Minecraft scale, defaults to 20)
+- `inventory`: from `bot.inventory.items()` mapped to `{name, count}`
+- `playerProximity`: calculated from nearest non-self player entity distance (Infinity if none)
+- `dangerLevel`, `unexploredBiomes`, `currentGoal`: placeholder values (0, 0, null) - future integration points with DangerPredictor, biome tracking, and GoalGenerator
+- `recentEvents`: empty array (future integration with event tracking)
+
+### Files Changed
+- `src/index.js`: Added DriveSystem import, buildDriveContext(), drive timer, cleanup
+- `src/dashboard/server.js`: Added driveScores to botStatus, sendCurrentState, loadBotStatusFromFile
+
+### Test Results
+- All unit tests: 844 passed, 6 skipped (pre-existing)
+- Drive-system tests: 39 passed
+- State-manager tests: 28 passed (including driveScores get/set tests)
+- Dashboard integration tests: 41 passed (including GET /api/drives)
+- 2 pre-existing failures in skill-executor tests (unrelated to this task)

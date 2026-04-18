@@ -96,14 +96,50 @@
       "category": "quick",
       "updated_at": "2026-04-18T02:37:32.115Z"
     },
+    "todo:13": {
+      "task_key": "todo:13",
+      "task_label": "13",
+      "task_title": "Next.js Project Setup",
+      "session_id": "ses_261754fa6ffefxrj3fOJNKxReZ",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-18T03:34:00.000Z"
+    },
+    "todo:14": {
+      "task_key": "todo:14",
+      "task_label": "14",
+      "task_title": "Real-time State Display",
+      "session_id": "ses_26156fe60ffemETV1oy0sw6RFa",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-18T03:40:00.000Z"
+    },
+    "todo:15": {
+      "task_key": "todo:15",
+      "task_label": "15",
+      "task_title": "Drive Visualization",
+      "session_id": "ses_26153bf9effelhfUb72E4TddrF",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-18T03:48:47.436Z"
+    },
+    "todo:16": {
+      "task_key": "todo:16",
+      "task_label": "16",
+      "task_title": "Memory Graph Viewer",
+      "session_id": "ses_261536868ffe4iLQ4uoxJEjVOO",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-04-18T03:48:47.436Z"
+    },
     "final-wave:f1": {
       "task_key": "final-wave:f1",
       "task_label": "F1",
       "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "ses_26153bf9effelhfUb72E4TddrF",
+      "session_id": "ses_2614a4a54ffetD7PW4CQyVeCPl",
       "agent": "Sisyphus-Junior",
-      "category": "visual-engineering",
-      "updated_at": "2026-04-18T03:42:10.353Z"
+      "category": "unspecified-high",
+      "updated_at": "2026-04-18T04:05:03.481Z"
     }
   }
 }

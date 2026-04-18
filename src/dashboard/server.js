@@ -42,7 +42,8 @@ let botStatus = {
   health: 0,
   position: { x: 0, y: 0, z: 0 },
   goal: null,
-  connectedClients: 0
+  connectedClients: 0,
+  driveScores: null
 };
 
 /**
@@ -376,7 +377,8 @@ async function sendCurrentState(ws) {
         inventory: stateData.inventory || [],
         entities: stateData.entities || [],
         blocks: stateData.blocks || [],
-        goal: stateData.goal || botStatus.goal
+        goal: stateData.goal || botStatus.goal,
+        driveScores: stateData.driveScores || botStatus.driveScores
       };
     }
   } catch (error) {
@@ -449,6 +451,11 @@ async function loadBotStatusFromFile() {
       }
       if (state.goal !== undefined) {
         botStatus.goal = state.goal;
+        changed = true;
+      }
+
+      if (state.driveScores) {
+        botStatus.driveScores = state.driveScores;
         changed = true;
       }
 
