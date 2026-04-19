@@ -1,0 +1,127 @@
+Task 41: ReflectionModule Integration with StrategyMemory
+================================================================
+
+## Implementation Summary
+
+Modified `src/learning/reflection-module.js`:
+- Added `strategyMemory` as optional 3rd constructor parameter
+- Implemented `_storeStrategies()` method (33 lines)
+- Stores success strategies when successRate >= 0.7
+- Stores failure strategies for each detected pattern
+
+Created `tests/unit/learning/reflection-module.test.js`:
+- 28 comprehensive tests covering all functionality
+- Tests backward compatibility (strategyMemory = null)
+- Tests StrategyMemory integration
+- Tests success/failure strategy storage
+
+## Test Results
+
+```
+PASS tests/unit/learning/reflection-module.test.js
+  ReflectionModule
+    constructor
+      ✓ should initialize with required dependencies (6 ms)
+      ✓ should accept optional strategyMemory parameter
+    reflect
+      ✓ should perform reflection and return results (11 ms)
+      ✓ should store reflection in knowledge graph (3 ms)
+      ✓ should not store strategies when strategyMemory is null (2 ms)
+      ✓ should store success strategy when successRate >= 0.7 (2 ms)
+      ✓ should not store success strategy when successRate < 0.7 (2 ms)
+      ✓ should store failure strategies for detected patterns (2 ms)
+      ✓ should store multiple failure strategies for multiple patterns (2 ms)
+      ✓ should update reflection history (1 ms)
+      ✓ should limit reflection history to maxHistory (3 ms)
+    _analyzePatterns
+      ✓ should detect high severity patterns (count >= 3) (1 ms)
+      ✓ should detect medium severity patterns (count >= 2) (1 ms)
+      ✓ should ignore single failures
+      ✓ should handle failures without action type (1 ms)
+    _generateLearnings
+      ✓ should generate learning for low success rate
+      ✓ should generate critical learning for very low success rate
+      ✓ should generate learnings for patterns
+    _suggestAdjustments
+      ✓ should suggest confidence threshold increase for low success rate
+      ✓ should suggest human intervention for very low success rate (1 ms)
+      ✓ should suggest pathfinding check for move failures
+      ✓ should suggest tool verification for dig failures (1 ms)
+      ✓ should suggest material verification for craft failures
+    getHistory
+      ✓ should return recent reflections with default limit (4 ms)
+      ✓ should return recent reflections with custom limit (3 ms)
+    getAverageSuccessRate
+      ✓ should return 1.0 when no reflections (1 ms)
+      ✓ should calculate average success rate (2 ms)
+      ✓ should use default count of 5 (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       28 passed, 28 total
+Time:        0.845 s
+```
+
+## Key Implementation Details
+
+### _storeStrategies Method
+
+```javascript
+_storeStrategies(successRate, patterns, timestamp) {
+  const period = { start: this.lastReflection, end: timestamp };
+  
+  // Store successful patterns as strategies
+  if (successRate >= 0.7) {
+    const learnings = this._generateLearnings(successRate, patterns);
+    this.strategyMemory.storeStrategy(
+      `reflection_success_${timestamp}`,
+      `Success rate: ${successRate.toFixed(2)}`,
+      learnings,
+      'Successful reflection period',
+      successRate,
+      { reflectionId: `reflection_${timestamp}`, period }
+    );
+  }
+  
+  // Store failure patterns as strategies
+  patterns.forEach(pattern => {
+    this.strategyMemory.storeStrategy(
+      `reflection_failure_${pattern.type}_${timestamp}`,
+      `Failure pattern: ${pattern.type} (count: ${pattern.count})`,
+      [`Avoid ${pattern.type} in similar contexts`],
+      `Failed ${pattern.count} times`,
+      0.0,
+      { reflectionId: `reflection_${timestamp}`, pattern, period }
+    );
+  });
+}
+```
+
+### Backward Compatibility
+
+- When `strategyMemory` is null, no strategies are stored
+- Existing behavior unchanged (knowledge graph storage still works)
+- No errors thrown when StrategyMemory is missing
+
+### Integration Pattern
+
+- Success strategies: stored when successRate >= 0.7 with actual success rate
+- Failure strategies: stored for each pattern with 0.0 success rate
+- Strategy IDs: `reflection_success_{timestamp}` or `reflection_failure_{type}_{timestamp}`
+- Extra metadata: includes reflectionId, pattern details, and time period
+
+## Verification
+
+✓ All 28 tests pass
+✓ Backward compatibility maintained (strategyMemory = null works)
+✓ Success strategies stored when successRate >= 0.7
+✓ Failure strategies stored for each detected pattern
+✓ No runtime errors when StrategyMemory is missing
+
+## Files Modified
+
+- src/learning/reflection-module.js (+33 lines)
+- tests/unit/learning/reflection-module.test.js (NEW, 28 tests)
+
+## Completion Status
+
+Task 41 COMPLETE ✓

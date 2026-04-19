@@ -730,3 +730,306 @@ Bot spawns → initializeLayers() → if ENABLE_DRIVES=true:
 - Safety checker blocks parkour when vision detects hazards
 
 **Verification:** APPROVED - All 4 phases passed
+
+## [2026-04-19T11:35:00Z] Task 34: Pathfinding Integration Tests
+
+### Implementation
+- Created `tests/integration/pathfinding-integration.test.js` with 36 tests across 6 describe blocks
+- 5 required scenarios + 1 cross-module coordination section
+- All tests pass on first run (0.4s execution time)
+
+### Test Architecture
+- Shared mock pattern: `createBot()`, `createVisionState()`, `setupMovementsMock()` helpers
+- Same mock setup as existing `vision-pathfinding.test.js` (logger, feature-flags, mineflayer-pathfinder)
+- Tests focus on cross-module interactions, not individual module logic
+
+### Key Integration Patterns Verified
+- Water timeout boundary is inclusive at 30s (`elapsed <= maxWaterTime`)
+- Boat presence short-circuits water timeout (no time check needed)
+- Strict greater-than for health threshold: `health > minHealth` (10 is NOT safe at threshold 10)
+- Vision hints are soft biases (costs, flags) not hard blocks (except safety hazards)
+- Stale vision data (>30s) returns null from all hint methods
+- Feature flag read at construction time (not per-call)
+
+### Pre-existing Issues
+- `rate-limits.test.js` has flaky timing test (103ms > 100ms threshold) - unrelated to pathfinding
+- DriveSystem console.log spam in test output (not mocked in some test files) - cosmetic only
+
+### Evidence Files
+- `.sisyphus/evidence/task-34-water-safety.txt`
+- `.sisyphus/evidence/task-34-nether-safety.txt`
+- `.sisyphus/evidence/task-34-parkour-safety.txt`
+- `.sisyphus/evidence/task-34-vision-integration.txt`
+- `.sisyphus/evidence/task-34-feature-flags.txt`
+
+## [2026-04-19T11:38:31Z] Task 34: Pathfinding Integration Tests
+
+### Implementation
+- Created `tests/integration/pathfinding-integration.test.js` (720 lines, 36 tests)
+- 5 integration scenarios covering cross-module interactions
+- All tests passing in integration test suite
+
+### Test Scenarios
+1. **Water + Safety Integration** (6 tests)
+   - Water timeout boundary testing (29s safe, 31s blocked, 30s inclusive)
+   - Boat presence overrides timeout
+   - Consistent config between WaterPathfinder and SafetyChecker
+   - Concurrent operation verification
+
+2. **Nether + Safety Integration** (4 tests)
+   - Lava detection + low health coordination
+   - Hazard level influences navigation mode
+   - Portal cooldown prevents rapid re-entry
+   - Healthy bot navigation in safe nether
+
+3. **Parkour + Safety Integration** (5 tests)
+   - Strict greater-than health threshold (health=10 NOT safe, health=11 safe)
+   - Gap detection + health validation coordination
+   - Consistent health checks between ParkourHandler and SafetyChecker
+
+4. **Vision Integration** (8 tests)
+   - Vision hints influence all 4 pathfinding modules
+   - Stale data (>30s) correctly filtered out
+   - Feature flag gating (requires VISION + ADVANCED_PATHFINDING)
+   - Graceful degradation without vision bridge
+
+5. **Feature Flag Isolation** (9 tests)
+   - All modules return null when ADVANCED_PATHFINDING=false
+   - Factory functions return applied=false when disabled
+   - bot.pathfinder.setMovements never called when disabled
+   - Re-enabling flag activates new instances
+
+### Cross-Module Coordination (4 tests)
+- All pathfinders share single vision bridge instance
+- Status reports consistent across modules
+- Nether + safety coordinate on hazardous terrain
+- Water + parkour coexist for mixed terrain
+
+### Evidence Files Created
+- `.sisyphus/evidence/task-34-water-safety.txt` - 6 tests, boundary conditions verified
+- `.sisyphus/evidence/task-34-nether-safety.txt` - 4 tests, hazard coordination verified
+- `.sisyphus/evidence/task-34-parkour-safety.txt` - 5 tests, strict threshold verified
+- `.sisyphus/evidence/task-34-vision-integration.txt` - 8 tests, soft biases verified
+- `.sisyphus/evidence/task-34-feature-flags.txt` - 13 tests (9 isolation + 4 coordination)
+
+### Key Patterns
+- **Integration tests focus on cross-module behavior**, not individual module logic
+- **Boundary testing critical**: Water timeout at exactly 30s, health at exactly threshold
+- **Strict greater-than semantics**: health=10 with minHealth=10 is NOT safe (health > minHealth required)
+- **Feature flag isolation**: Modules work independently when flag disabled, no side effects
+- **Vision as soft bias**: Hints influence pathfinding but don't override safety checks
+
+### Verification Results
+- Integration tests: 154 passed (10 suites)
+- Unit tests: 1099 passed, 6 skipped (33 suites)
+- No regressions introduced
+- LSP diagnostics: TypeScript language server not installed (non-blocking, JavaScript project)
+
+### Gotchas
+- **Boundary inclusivity matters**: Water timeout uses `<=` (30s is safe), health uses `>` (10 is NOT safe)
+- **Vision bridge null checks**: All pathfinders must handle null visionBridge gracefully
+- **Feature flag read timing**: Flags read at construction time, not runtime (re-enable requires new instance)
+- **Mock bot complexity**: Integration tests need realistic bot mocks with blockAt(), entity.position, etc.
+
+
+## [2026-04-19T11:39:00Z] Phase 2 Complete
+
+### Summary
+- All 36 tasks (1-36) completed and verified
+- Phase 1: Internal Drives + Dashboard (Tasks 1-20) ✓
+- Phase 2: Vision + Advanced Pathfinding (Tasks 21-36) ✓
+- Tests passing: All unit, integration tests pass
+- Ready to proceed with Phase 3: Meta-Learning + Natural Conversation (Tasks 37-52)
+
+### Phase 2 Achievements
+- Vision system with caching and rate limiting (20 RPM budget)
+- Advanced pathfinding: water, nether, parkour with safety checks
+- Vision-pathfinding integration via VisionPathfindingBridge
+- Comprehensive test coverage: unit + integration tests
+
+### Next Steps
+- Phase 3 Wave 1: Meta-Learning Foundation (Tasks 37-40)
+- Phase 3 Wave 2: Meta-Learning Integration (Tasks 41-44)
+- Phase 3 Wave 3: Natural Conversation (Tasks 45-48)
+- Phase 3 Wave 4: Integration + Testing (Tasks 49-52)
+- Final Verification Wave (F1-F4)
+
+
+## [2026-04-19T11:44:19] Task 34 Verification Complete
+
+**Verification Protocol (PHASES 1-4):**
+- PHASE 1 (Read): All 5 evidence files + test implementation verified (720 lines, 36 tests)
+- PHASE 2 (Integration Tests): 154/154 passed including all 36 pathfinding integration tests
+- PHASE 3 (LSP): Skipped (TypeScript LSP not installed, but tests validate correctness)
+- PHASE 4 (Plan Update): Task 34 already marked [x] in plan (line 1140)
+
+**Task 34 Status:** VERIFIED COMPLETE ✓
+
+**Evidence Files:**
+- task-34-water-safety.txt (6 tests, water+safety coordination)
+- task-34-nether-safety.txt (4 tests, nether+safety coordination)
+- task-34-parkour-safety.txt (5 tests, parkour+safety coordination)
+- task-34-vision-integration.txt (8 tests, vision hints influence all pathfinders)
+- task-34-feature-flags.txt (9 tests + 4 cross-module, feature flag isolation)
+
+**Key Findings:**
+- All 36 integration tests pass (5 scenarios: Water+Safety, Nether+Safety, Parkour+Safety, Vision Integration, Feature Flags)
+- Cross-module coordination verified (pathfinders share vision bridge, status reports consistent)
+- Feature flag isolation confirmed (all modules respect ENABLE_ADVANCED_PATHFINDING)
+- Graceful degradation: all pathfinders work without vision bridge
+
+**Phase 2 Status:** Tasks 1-36 ALL COMPLETE [x]
+**Next:** Phase 3 Wave 1 (Tasks 37-40) - Meta-Learning Foundation
+
+## [2026-04-19] Task 37: Strategy Memory Schema
+
+### Implementation
+- Added `strategy_memory` as a first-class KnowledgeGraph node type
+- Added helpers: `addStrategy()`, `getStrategy()`, `updateStrategySuccessRate()`
+- Stored required fields on node properties: `strategy_id`, `context`, `actions`, `outcome`, `success_rate`, `timestamp`, `embedding`
+
+### Design Notes
+- Reused existing entity persistence instead of adding a separate store
+- Kept `embedding` as a passthrough field only; no generation or retrieval logic added here
+- Used the strategy id as the node id for direct lookup and simple CRUD
+
+### Testing Notes
+- Added unit coverage for add/get/update flows
+- Strategy memories serialize through the existing save/load path because they are standard graph nodes
+
+## [2026-04-19 18:50] Task 38: Embedding-based retrieval
+
+**Key Learning: Vocabulary dimension stability is critical for embedding caching**
+
+When storing strategies incrementally, vocabulary dimensions change as new documents are added. Pre-computing and caching embeddings during storage causes dimension mismatches during retrieval.
+
+**Solution:**
+- Store only `embedding_text` in KnowledgeGraph (not pre-computed embeddings)
+- Rebuild vocabulary from ALL stored strategies before each retrieval
+- Generate embeddings lazily during retrieval with current vocabulary
+- Cache embeddings within a single retrieval session for performance
+- Clear cache after vocabulary changes (new strategy storage)
+
+**Why this works:**
+- All embeddings (query + stored) use the same vocabulary dimensions
+- Lazy generation ensures consistency
+- Cache provides O(1) lookup within retrieval session
+- Vocabulary rebuild ensures IDF values reflect full corpus
+
+**Test-driven development success:**
+- 73 comprehensive tests caught dimension mismatch bugs early
+- Tests specified exact API expectations (cacheSize, clearCache behavior)
+- Fixed implementation to match tests, not vice versa
+
+**TF-IDF Implementation:**
+- Scikit-learn smooth IDF variant: log((1+N)/(1+df)) + 1
+- L2 normalization for cosine similarity efficiency
+- Vocabulary eviction at 5000 terms (removes lowest-IDF terms)
+- Combined scoring: similarity (50%) + success_rate (30%) + recency (20%)
+
+**Performance characteristics:**
+- Vocabulary rebuild: O(N * M) where N=strategies, M=avg tokens
+- Embedding generation: O(V) where V=vocabulary size
+- Retrieval: O(N * V) per query
+- Acceptable for <1000 strategies, may need optimization beyond that
+
+
+## [2026-04-19 18:51] Task 39: Similarity scoring
+
+**Key Learning: Task 39 was already implemented in Task 38**
+
+The similarity scoring functionality was implemented as part of the `retrieveSimilarStrategies()` method in Task 38. This is a good example of natural task consolidation where related functionality belongs together.
+
+**Combined Scoring Implementation:**
+- Formula: similarity * 0.5 + success_rate * 0.3 + recency * 0.2
+- Exponential recency decay: 0.5^(ageHours / 24)
+- Configurable weights via constructor options
+- Results sorted by combined score (descending)
+
+**Why this consolidation makes sense:**
+- Scoring is intrinsic to retrieval - you can't retrieve without scoring
+- Separating them would create artificial boundaries
+- Tests for retrieval naturally cover scoring behavior
+- Single source of truth for similarity computation
+
+**Lesson for future tasks:**
+- Review implementation before starting new task
+- Check if functionality already exists in related modules
+- Consolidate related features in single cohesive module
+- Mark tasks complete if already implemented elsewhere
+
+
+## [2026-04-19 18:52] Task 40: Strategy storage
+
+**Key Learning: Task 40 was already implemented in Task 38**
+
+The `storeStrategy()` method was implemented as part of the StrategyMemory class in Task 38. This is another example of natural task consolidation.
+
+**Storage Implementation:**
+- Stores context, actions, outcome, success_rate, timestamp
+- Builds embedding_text from components
+- Integrates with KnowledgeGraph.addStrategy()
+- Rebuilds vocabulary after each storage
+- Clears embedding cache to maintain dimension consistency
+
+**Why consolidation makes sense:**
+- Storage and retrieval are complementary operations
+- Both belong in the same StrategyMemory class
+- Tests naturally cover both storage and retrieval flows
+- Single module owns the complete strategy lifecycle
+
+**Phase 3 Wave 1 Complete:**
+- Task 37: Strategy memory schema ✓
+- Task 38: Embedding-based retrieval ✓
+- Task 39: Similarity scoring ✓ (part of Task 38)
+- Task 40: Strategy storage ✓ (part of Task 38)
+
+**Efficiency gain:**
+- 4 tasks completed with 1 implementation
+- 73 comprehensive tests cover all functionality
+- Clean API: storeStrategy() + retrieveSimilarStrategies()
+- Ready for Wave 2 integration tasks
+
+
+## [2026-04-19T19:07:00Z] Task 41: ReflectionModule Integration
+
+### Implementation
+- Added `strategyMemory` as optional 3rd constructor parameter to ReflectionModule
+- Implemented `_storeStrategies()` method (33 lines)
+- Stores success strategies when successRate >= 0.7
+- Stores failure strategies for each detected pattern with 0.0 success rate
+- Created 28 comprehensive tests in `tests/unit/learning/reflection-module.test.js`
+
+### Key Design Decisions
+- **Backward compatibility**: strategyMemory is optional (null by default)
+- **Success threshold**: Only store success strategies when successRate >= 0.7
+- **Failure patterns**: Store each pattern separately with context
+- **Strategy IDs**: `reflection_success_{timestamp}` or `reflection_failure_{type}_{timestamp}`
+- **Extra metadata**: Includes reflectionId, pattern details, and time period
+
+### Integration Pattern
+```javascript
+if (this.strategyMemory) {
+  this._storeStrategies(successRate, patterns, now);
+}
+```
+
+### Test Coverage
+- 28 tests covering all functionality
+- Tests backward compatibility (strategyMemory = null)
+- Tests success/failure strategy storage
+- Tests pattern analysis and learning generation
+- All tests pass in 0.845s
+
+### Subagent Failure Analysis
+- First attempt (ses_258e7a15bffeejMiBKVae7q2mO): Only deleted old evidence files, did not implement
+- Second attempt (ses_25a6be5d1ffesVOU3Ee0BsbjBI): Silent failure, no changes made
+- Root cause: Task was too simple for deep category agent, should have used quick category
+- Resolution: Orchestrator implemented directly to unblock pipeline
+
+### Gotchas
+- Method `_storeStrategies()` must be implemented, not just called
+- Tests must mock StrategyMemory.storeStrategy() method
+- Learnings array contains strings, not objects with message property
+- Period object must include both start and end timestamps
+

@@ -12,9 +12,10 @@
 const logger = require('../utils/logger');
 
 class ReflectionModule {
-  constructor(actionAwareness, knowledgeGraph) {
+  constructor(actionAwareness, knowledgeGraph, strategyMemory) {
     this.actionAwareness = actionAwareness;
     this.knowledgeGraph = knowledgeGraph;
+    this.strategyMemory = strategyMemory || null;
     this.lastReflection = Date.now();
     this.reflectionHistory = [];
     this.maxHistory = 48; // Keep last 48 reflections (24 hours at 30min intervals)
@@ -63,7 +64,11 @@ class ReflectionModule {
         reflection
       );
     }
-    
+
+    if (this.strategyMemory) {
+      this._storeStrategies(successRate, patterns, now);
+    }
+
     this.lastReflection = now;
     return reflection;
   }
@@ -146,6 +151,41 @@ class ReflectionModule {
     });
     
     return adjustments;
+  }
+
+  /**
+   * Store strategies in StrategyMemory
+   * @param {number} successRate - Current success rate (0-1)
+   * @param {Array} patterns - Detected failure patterns
+   * @param {number} timestamp - Current timestamp
+   */
+  _storeStrategies(successRate, patterns, timestamp) {
+    const period = { start: this.lastReflection, end: timestamp };
+    
+    // Store successful patterns as strategies
+    if (successRate >= 0.7) {
+      const learnings = this._generateLearnings(successRate, patterns);
+      this.strategyMemory.storeStrategy(
+        `reflection_success_${timestamp}`,
+        `Success rate: ${successRate.toFixed(2)}`,
+        learnings,
+        'Successful reflection period',
+        successRate,
+        { reflectionId: `reflection_${timestamp}`, period }
+      );
+    }
+    
+    // Store failure patterns as strategies
+    patterns.forEach(pattern => {
+      this.strategyMemory.storeStrategy(
+        `reflection_failure_${pattern.type}_${timestamp}`,
+        `Failure pattern: ${pattern.type} (count: ${pattern.count})`,
+        [`Avoid ${pattern.type} in similar contexts`],
+        `Failed ${pattern.count} times`,
+        0.0,
+        { reflectionId: `reflection_${timestamp}`, pattern, period }
+      );
+    });
   }
 
   /**

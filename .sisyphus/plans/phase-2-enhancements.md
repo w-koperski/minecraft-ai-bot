@@ -177,8 +177,8 @@ Phase 2 - Wave 3 (Advanced Pathfinding):
 └── Task 32: Safety checks [quick]
 
 Phase 2 - Wave 4 (Integration + Testing):
-├── Task 33: Vision-guided navigation [deep]
-├── Task 34: Pathfinding integration tests [unspecified-high]
+├── Task 33: Vision-guided navigation [deep] ✅
+├── Task 34: Pathfinding integration tests [unspecified-high] ✅
 ├── Task 35: Vision rate limit tests [quick]
 └── Task 36: Feature isolation tests [quick]
 
@@ -1106,22 +1106,22 @@ Max Concurrent: 4 (most waves)
 **Due to plan size, remaining tasks (13-52 + F1-F4) are summarized below. Each follows the same detailed structure as Tasks 1-12.**
 
 **Phase 1 - Wave 3: Dashboard Frontend (Tasks 13-16)**
-- Task 13: Next.js project setup (quick) - Initialize Next.js 15 + React 19 in src/dashboard/frontend
-- Task 14: Real-time state display (visual-engineering) - Show bot status, position, health, inventory
-- Task 15: Drive visualization (visual-engineering) - Bar charts for 5 drives, real-time updates
-- Task 16: Memory graph viewer (visual-engineering) - Interactive graph visualization with D3.js
+- [x] Task 13: Next.js project setup (quick) - Initialize Next.js 15 + React 19 in src/dashboard/frontend
+- [x] Task 14: Real-time state display (visual-engineering) - Show bot status, position, health, inventory
+- [x] Task 15: Drive visualization (visual-engineering) - Bar charts for 5 drives, real-time updates
+- [x] Task 16: Memory graph viewer (visual-engineering) - Interactive graph visualization with D3.js
 
 **Phase 1 - Wave 4: Integration + Testing (Tasks 17-20)**
-- Task 17: Drive-dashboard integration (unspecified-high) - Connect DriveSystem to dashboard display
-- Task 18: Feature flag isolation tests (quick) - Verify bot works identically with ENABLE_DRIVES=false
-- Task 19: Rate limit verification (quick) - Ensure drives don't exceed RPM budget
-- Task 20: Dashboard crash test (quick) - Kill dashboard, verify bot continues
+- [x] Task 17: Drive-dashboard integration (unspecified-high) - Connect DriveSystem to dashboard display
+- [x] Task 18: Feature flag isolation tests (quick) - Verify bot works identically with ENABLE_DRIVES=false
+- [x] Task 19: Rate limit verification (quick) - Ensure drives don't exceed RPM budget
+- [x] Task 20: Dashboard crash test (quick) - Kill dashboard, verify bot continues
 
 **Phase 2 - Wave 1: Vision Foundation (Tasks 21-24)**
-- Task 21: VisionProcessor class (unspecified-high) - Async screenshot analysis loop (2-10s)
-- Task 22: Screenshot capture (unspecified-high) - Mineflayer headless rendering
-- Task 23: Custom endpoint support (quick) - Support any OpenAI-compatible API
-- Task 24: VisionState object (quick) - Non-blocking state for Pilot to read
+- [x] Task 21: VisionProcessor class (unspecified-high) - Async screenshot analysis loop (2-10s)
+- [x] Task 22: Screenshot capture (unspecified-high) - Mineflayer headless rendering
+- [x] Task 23: Custom endpoint support (quick) - Support any OpenAI-compatible API
+- [x] Task 24: VisionState object (quick) - Non-blocking state for Pilot to read
 
 **Phase 2 - Wave 2: Vision Integration (Tasks 25-28)**
 - [x] Task 25: Pilot vision integration (deep) - Add vision context to Pilot decisions, non-blocking
@@ -1136,22 +1136,22 @@ Max Concurrent: 4 (most waves)
 - [x] Task 32: Safety checks (quick) - No parkour if health ≤10, no water >30s without boat
 
 **Phase 2 - Wave 4: Integration + Testing (Tasks 33-36)**
-- Task 33: Vision-guided navigation (deep) - Use vision for complex terrain decisions
-- Task 34: Pathfinding integration tests (unspecified-high) - Test water, nether, parkour
-- Task 35: Vision rate limit tests (quick) - Verify 20 RPM budget enforced
-- Task 36: Feature isolation tests (quick) - Verify bot works with ENABLE_VISION=false
+- [x] Task 33: Vision-guided navigation (deep) - Use vision for complex terrain decisions
+- [x] Task 34: Pathfinding integration tests (unspecified-high) - Test water, nether, parkour
+- [x] Task 35: Vision rate limit tests (quick) - Verify 20 RPM budget enforced
+- [x] Task 36: Feature isolation tests (quick) - Verify bot works with ENABLE_VISION=false
 
 **Phase 3 - Wave 1: Meta-Learning Foundation (Tasks 37-40)**
-- Task 37: Strategy memory schema (quick) - Define 'strategy_memory' type in KnowledgeGraph
-- Task 38: Embedding-based retrieval (unspecified-high) - Cosine similarity search (threshold >0.75)
-- Task 39: Similarity scoring (quick) - Weight by success rate + recency
-- Task 40: Strategy storage (quick) - Store successful/failed strategies with context
+- [x] Task 37: Strategy memory schema (quick) - Define 'strategy_memory' type in KnowledgeGraph
+- [x] Task 38: Embedding-based retrieval (unspecified-high) - Cosine similarity search (threshold >0.75)
+- [x] Task 39: Similarity scoring (quick) - Weight by success rate + recency
+- [x] Task 40: Strategy storage (quick) - Store successful/failed strategies with context
 
 **Phase 3 - Wave 2: Meta-Learning Integration (Tasks 41-44)**
-- Task 41: ReflectionModule integration (deep) - Store strategies during reflection cycle
-- Task 42: Strategy application logic (unspecified-high) - Retrieve and apply similar strategies
-- Task 43: Learning metrics (quick) - Track strategy reuse rate, success improvement
-- Task 44: Dashboard learning display (visual-engineering) - Show learned strategies, success rates
+- [x] Task 41: ReflectionModule integration (deep) - Store strategies during reflection cycle
+- [ ] Task 42: Strategy application logic (unspecified-high) - Retrieve and apply similar strategies
+- [ ] Task 43: Learning metrics (quick) - Track strategy reuse rate, success improvement
+- [ ] Task 44: Dashboard learning display (visual-engineering) - Show learned strategies, success rates
 
 **Phase 3 - Wave 3: Natural Conversation (Tasks 45-48)**
 - Task 45: Context tracker (unspecified-high) - Last 10 messages + summary + relationship
