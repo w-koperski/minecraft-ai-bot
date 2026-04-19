@@ -18,6 +18,7 @@ const ActionAwareness = require('./action-awareness');
 const ItemTracker = require('../metrics/item-tracker');
 const { getTraits } = require('../../personality/personality-engine');
 const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
+const featureFlags = require('../utils/feature-flags');
 
 // Adaptive loop intervals (milliseconds)
 const INTERVALS = {
@@ -41,22 +42,23 @@ const STUCK_THRESHOLD = {
 };
 
 class Pilot {
-  constructor(bot) {
+  constructor(bot, options = {}) {
     this.bot = bot;
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
     this.actionAwareness = new ActionAwareness(bot, { extractState });
-    
+    this.visionState = options.visionState || null;
+
     this.running = false;
     this.loopTimer = null;
     this.currentInterval = INTERVALS.active;
     this.currentMode = 'active';
-    
+
     // Stuck detection
     this.lastPosition = null;
     this.lastMoveTime = Date.now();
     this.stuckCheckTimer = null;
-    
+
     // Action execution state
     this.currentPlan = [];
     this.currentActionIndex = 0;
@@ -425,13 +427,14 @@ class Pilot {
 
     const personalityBlock = await this._buildPersonalityBlock();
     const relationshipBlock = await this._buildRelationshipBlock();
+    const visionBlock = this._buildVisionBlock();
 
     return `You are a Minecraft bot's fast reaction system. Respond to immediate threats.
 
 ${personalityBlock}
 
 ${relationshipBlock}
-
+${visionBlock}
 Current State:
 - Position: ${position.x}, ${position.y}, ${position.z}
 - Health: ${health}/20
@@ -447,6 +450,60 @@ OR
 {"type": "jump"}
 
 Choose the safest action to avoid the threat.`;
+  }
+
+  /**
+   * Build vision context block (non-blocking, synchronous read)
+   * Returns empty string if vision disabled or no recent analysis
+   */
+  _buildVisionBlock() {
+    if (!featureFlags.isEnabled('VISION') || !this.visionState) {
+      return '';
+    }
+
+    const analysis = this.visionState.getLatestAnalysis();
+
+    if (!analysis) {
+      return '';
+    }
+
+  const ageMs = Date.now() - analysis.timestamp;
+  if (ageMs >= 30000) {
+      logger.debug('Pilot: Vision analysis stale, skipping', { ageMs });
+      return '';
+    }
+
+    logger.debug('Pilot: Using vision context', { ageMs, confidence: analysis.confidence });
+
+    const parts = [];
+
+    if (analysis.observations && analysis.observations.length > 0) {
+      parts.push(`- Observations: ${analysis.observations.join(', ')}`);
+    }
+
+    if (analysis.threats && analysis.threats.length > 0) {
+      parts.push(`- Threats detected: ${analysis.threats.join(', ')}`);
+    }
+
+    if (analysis.entities && analysis.entities.length > 0) {
+      const entityNames = analysis.entities.map(e => e.type || e.name || 'unknown').join(', ');
+      parts.push(`- Nearby entities: ${entityNames}`);
+    }
+
+    if (analysis.blocks && analysis.blocks.length > 0) {
+      const blockNames = analysis.blocks.map(b => b.type || b.name || 'unknown').join(', ');
+      parts.push(`- Notable blocks: ${blockNames}`);
+    }
+
+    if (analysis.confidence !== undefined) {
+      parts.push(`- Vision confidence: ${(analysis.confidence * 100).toFixed(0)}%`);
+    }
+
+    if (parts.length === 0) {
+      return '';
+    }
+
+    return `\nVision Context:\n${parts.join('\n')}\n`;
   }
 
   async _buildPersonalityBlock() {
