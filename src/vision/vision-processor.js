@@ -305,6 +305,161 @@ class VisionProcessor {
   }
 
   /**
+   * Build structured prompt for vision analysis
+   * @param {Object} screenshot - Screenshot data
+   * @param {Object} state - Current bot state
+   * @returns {string} Formatted prompt for vision API
+   */
+  buildVisionPrompt(screenshot, state) {
+    const position = screenshot.position || { x: 0, y: 0, z: 0 };
+    const mode = state.mode || 'idle';
+
+    // Select template based on analysis mode
+    if (mode === 'danger') {
+      return this.buildThreatAnalysisPrompt(position);
+    } else if (mode === 'active') {
+      return this.buildNavigationPrompt(position);
+    } else {
+      return this.buildExplorationPrompt(position);
+    }
+  }
+
+  /**
+   * Threat analysis prompt template (danger mode)
+   * Focus: hostile entities, hazards, immediate dangers
+   */
+  buildThreatAnalysisPrompt(position) {
+    return `You are analyzing a Minecraft screenshot for immediate threats and dangers.
+
+Current Position: x=${position.x.toFixed(1)}, y=${position.y.toFixed(1)}, z=${position.z.toFixed(1)}
+
+Analyze the screenshot and identify:
+
+1. THREATS (hostile entities, hazards):
+   - Hostile mobs (zombies, skeletons, creepers, spiders, etc.)
+   - Environmental hazards (lava, fire, deep falls, water)
+   - Distance and direction to each threat
+
+2. SAFE ZONES:
+   - Areas without threats
+   - Escape routes
+   - Shelter or cover
+
+3. IMMEDIATE ACTIONS:
+   - Recommended evasive maneuvers
+   - Combat readiness assessment
+
+Return JSON format:
+{
+  "observations": ["string descriptions of what you see"],
+  "threats": ["hostile mob at 10 blocks north", "lava pool 5 blocks east"],
+  "entities": [{"type": "zombie", "distance": 10, "direction": "north"}],
+  "blocks": [{"type": "lava", "distance": 5, "direction": "east"}],
+  "confidence": 0.0-1.0
+}
+
+Example:
+{
+  "observations": ["Dark cave environment", "Stone walls", "Torch lighting"],
+  "threats": ["Zombie 8 blocks ahead", "Skeleton archer on ledge"],
+  "entities": [{"type": "zombie", "distance": 8}, {"type": "skeleton", "distance": 12}],
+  "blocks": [{"type": "stone", "distance": 2}],
+  "confidence": 0.85
+}`;
+  }
+
+  /**
+   * Navigation prompt template (active mode)
+   * Focus: pathfinding, obstacles, terrain features
+   */
+  buildNavigationPrompt(position) {
+    return `You are analyzing a Minecraft screenshot for navigation and pathfinding.
+
+Current Position: x=${position.x.toFixed(1)}, y=${position.y.toFixed(1)}, z=${position.z.toFixed(1)}
+
+Analyze the screenshot and identify:
+
+1. TERRAIN LAYOUT:
+   - Ground type (grass, stone, sand, etc.)
+   - Elevation changes (hills, cliffs, valleys)
+   - Biome type if identifiable
+
+2. OBSTACLES:
+   - Blocks blocking path (walls, trees, water)
+   - Gaps or holes
+   - Height differences requiring jumping
+
+3. NAVIGATION HINTS:
+   - Clear paths forward
+   - Landmarks for orientation
+   - Suggested movement direction
+
+Return JSON format:
+{
+  "observations": ["string descriptions of terrain"],
+  "threats": ["obstacle descriptions if dangerous"],
+  "entities": [{"type": "entity_name", "distance": number}],
+  "blocks": [{"type": "block_name", "distance": number, "direction": "string"}],
+  "confidence": 0.0-1.0
+}
+
+Example:
+{
+  "observations": ["Open plains biome", "Flat terrain ahead", "Oak trees scattered"],
+  "threats": [],
+  "entities": [{"type": "cow", "distance": 15}],
+  "blocks": [{"type": "grass", "distance": 0}, {"type": "oak_log", "distance": 20, "direction": "northeast"}],
+  "confidence": 0.90
+}`;
+  }
+
+  /**
+   * Exploration prompt template (idle mode)
+   * Focus: resources, structures, points of interest
+   */
+  buildExplorationPrompt(position) {
+    return `You are analyzing a Minecraft screenshot for exploration and resource gathering.
+
+Current Position: x=${position.x.toFixed(1)}, y=${position.y.toFixed(1)}, z=${position.z.toFixed(1)}
+
+Analyze the screenshot and identify:
+
+1. RESOURCES:
+   - Visible ores (coal, iron, gold, diamonds)
+   - Trees and wood sources
+   - Animals for food
+   - Water sources
+
+2. STRUCTURES:
+   - Villages, temples, dungeons
+   - Player-built structures
+   - Natural formations (caves, ravines)
+
+3. POINTS OF INTEREST:
+   - Unexplored areas
+   - Valuable resource locations
+   - Strategic positions
+
+Return JSON format:
+{
+  "observations": ["string descriptions of environment"],
+  "threats": ["potential dangers if any"],
+  "entities": [{"type": "entity_name", "distance": number}],
+  "blocks": [{"type": "block_name", "distance": number, "direction": "string"}],
+  "confidence": 0.0-1.0
+}
+
+Example:
+{
+  "observations": ["Forest biome", "Dense oak trees", "Small hill to the west"],
+  "threats": [],
+  "entities": [{"type": "pig", "distance": 10}, {"type": "chicken", "distance": 8}],
+  "blocks": [{"type": "oak_log", "distance": 5, "direction": "north"}, {"type": "stone", "distance": 3}],
+  "confidence": 0.88
+}`;
+  }
+
+  /**
    * Analyze a screenshot using vision model
    * Placeholder analysis - will be connected to Omniroute vision endpoint
    * @param {Object} screenshot - Screenshot data from captureScreenshot()
@@ -312,6 +467,13 @@ class VisionProcessor {
    * @returns {Object} Analysis result (VisionState-compatible format)
    */
   analyzeScreenshot(screenshot, state) {
+    // Build structured prompt based on mode
+    const prompt = this.buildVisionPrompt(screenshot, state);
+    
+    // TODO: Send prompt to vision API (Task 23 custom endpoint)
+    // For now, return placeholder structure
+    // In production: const response = await visionClient.analyze(screenshot.data, prompt);
+    
     return {
       timestamp: screenshot.timestamp,
       mode: this.currentMode,
@@ -321,7 +483,8 @@ class VisionProcessor {
       entities: [],
       blocks: [],
       confidence: 0,
-      state: state.mode
+      state: state.mode,
+      prompt: prompt  // Include prompt for debugging
     };
   }
 
