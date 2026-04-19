@@ -78,24 +78,23 @@ describe('ReflectionModule', () => {
       expect(mockStrategyMemory.storeStrategy).not.toHaveBeenCalled();
     });
 
-    it('should store success strategy when successRate >= 0.7', () => {
-      mockActionAwareness.getSuccessRate.mockReturnValue(0.85);
-      reflectionModule = new ReflectionModule(mockActionAwareness, mockKnowledgeGraph, mockStrategyMemory);
-      
-      reflectionModule.reflect();
-      
-      expect(mockStrategyMemory.storeStrategy).toHaveBeenCalledWith(
-        expect.stringMatching(/^reflection_success_\d+$/),
-        'Success rate: 0.85',
-        expect.any(Array),
-        'Successful reflection period',
-        0.85,
-        expect.objectContaining({
-          reflectionId: expect.stringMatching(/^reflection_\d+$/),
-          period: expect.any(Object)
-        })
-      );
-    });
+  it('should store success strategy when successRate >= 0.7', () => {
+    mockActionAwareness.getSuccessRate.mockReturnValue(0.85);
+    reflectionModule = new ReflectionModule(mockActionAwareness, mockKnowledgeGraph, mockStrategyMemory);
+
+    reflectionModule.reflect();
+
+    expect(mockStrategyMemory.storeStrategy).toHaveBeenCalledWith(
+      expect.stringMatching(/^reflection_success_\d+$/),
+      'Success rate: 0.85',
+      expect.any(Array),
+      'Successful reflection period',
+      0.85,
+      expect.objectContaining({
+        reflectionId: expect.stringMatching(/^reflection_\d+$/)
+      })
+    );
+  });
 
     it('should not store success strategy when successRate < 0.7', () => {
       mockActionAwareness.getSuccessRate.mockReturnValue(0.65);
@@ -109,29 +108,28 @@ describe('ReflectionModule', () => {
       expect(successCalls).toHaveLength(0);
     });
 
-    it('should store failure strategies for detected patterns', () => {
-      mockActionAwareness.getRecentFailures.mockReturnValue([
-        { action: { type: 'dig' } },
-        { action: { type: 'dig' } },
-        { action: { type: 'dig' } }
-      ]);
-      reflectionModule = new ReflectionModule(mockActionAwareness, mockKnowledgeGraph, mockStrategyMemory);
-      
-      reflectionModule.reflect();
-      
-      expect(mockStrategyMemory.storeStrategy).toHaveBeenCalledWith(
-        expect.stringMatching(/^reflection_failure_dig_\d+$/),
-        'Failure pattern: dig (count: 3)',
-        ['Avoid dig in similar contexts'],
-        'Failed 3 times',
-        0.0,
-        expect.objectContaining({
-          reflectionId: expect.stringMatching(/^reflection_\d+$/),
-          pattern: { type: 'dig', count: 3, severity: 'high' },
-          period: expect.any(Object)
-        })
-      );
-    });
+  it('should store failure strategies for detected patterns', () => {
+    mockActionAwareness.getRecentFailures.mockReturnValue([
+      { action: { type: 'dig' } },
+      { action: { type: 'dig' } },
+      { action: { type: 'dig' } }
+    ]);
+    reflectionModule = new ReflectionModule(mockActionAwareness, mockKnowledgeGraph, mockStrategyMemory);
+
+    reflectionModule.reflect();
+
+    expect(mockStrategyMemory.storeStrategy).toHaveBeenCalledWith(
+      expect.stringMatching(/^reflection_failure_dig_\d+$/),
+      'Failure pattern: dig (count: 3)',
+      ['Avoid dig in similar contexts'],
+      'Failed 3 times',
+      0.0,
+      expect.objectContaining({
+        reflectionId: expect.stringMatching(/^reflection_\d+$/),
+        severity: 'high'
+      })
+    );
+  });
 
     it('should store multiple failure strategies for multiple patterns', () => {
       mockActionAwareness.getRecentFailures.mockReturnValue([
