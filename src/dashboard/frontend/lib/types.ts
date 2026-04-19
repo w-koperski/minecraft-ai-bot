@@ -68,3 +68,39 @@ export interface MemoryGraphData {
   nodes: MemoryGraphNode[];
   edges: MemoryGraphEdge[];
 }
+
+export type VisionMode = 'danger' | 'active' | 'idle';
+
+export interface VisionAnalysis {
+  terrain?: string;
+  biome?: string;
+  timeOfDay?: string;
+  weather?: string;
+  observations?: string[];
+  threats?: string[];
+  entities?: string[];
+  fromCache?: boolean;
+  timestamp?: number;
+}
+
+export interface VisionProcessorStatus {
+  running: boolean;
+  mode: VisionMode;
+  interval: number;
+  analysisCount: number;
+  lastAnalysisTime: number | null;
+  errorCount: number;
+  lastError: string | null;
+  hasAnalysis: boolean;
+  intervals: { danger: number; active: number; idle: number };
+  cacheHits: number;
+  cacheMisses: number;
+  cacheAge: number | null;
+  latestAnalysis: VisionAnalysis | null;
+  screenshot: string | null;
+}
+
+export interface VisionData {
+  enabled: boolean;
+  analysis: VisionProcessorStatus | null;
+}

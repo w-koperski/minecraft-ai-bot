@@ -1,6 +1,7 @@
 import BotStatus from '@/components/BotStatus';
 import DriveViz from '@/components/DriveViz';
 import MemoryGraph from '@/components/MemoryGraph';
+import VisionDisplay from '@/components/VisionDisplay';
 
 export default function Home() {
   return (
@@ -12,6 +13,7 @@ export default function Home() {
         <BotStatus />
         <DriveViz />
         <MemoryGraph />
+        <VisionDisplay />
       </main>
     </div>
   );

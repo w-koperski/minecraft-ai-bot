@@ -1126,8 +1126,8 @@ Max Concurrent: 4 (most waves)
 **Phase 2 - Wave 2: Vision Integration (Tasks 25-28)**
 - Task 25: Pilot vision integration (deep) - Add vision context to Pilot decisions, non-blocking
 - Task 26: Vision prompt templates (quick) - Structured prompts for spatial reasoning
-- Task 27: Vision caching strategy (quick) - Cache static elements, refresh dynamic
-- Task 28: Dashboard vision display (visual-engineering) - Show latest screenshot + description
+- [x] Task 27: Vision caching strategy (quick) - Cache static elements, refresh dynamic
+- [x] Task 28: Dashboard vision display (visual-engineering) - Show latest screenshot + description
 
 **Phase 2 - Wave 3: Advanced Pathfinding (Tasks 29-32)**
 - Task 29: Water pathfinding (unspecified-high) - Extend mineflayer-pathfinder for swimming

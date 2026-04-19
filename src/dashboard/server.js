@@ -288,6 +288,38 @@ function createApp() {
     }
   });
 
+  // GET /api/vision - Vision processor status and latest analysis
+  app.get('/api/vision', async (req, res) => {
+    try {
+      const featureFlags = require('../utils/feature-flags');
+      const enabled = featureFlags.isEnabled('VISION');
+
+      if (!enabled) {
+        return res.json({ enabled: false, analysis: null });
+      }
+
+      // Try to read vision processor status from state file
+      const StateManager = require('../utils/state-manager');
+      const stateManager = new StateManager();
+      const state = await stateManager.read('state');
+
+      const visionStatus = state?.vision || null;
+
+      if (visionStatus) {
+        visionStatus.latestAnalysis = state?.visionLatestAnalysis || null;
+        visionStatus.screenshot = state?.visionScreenshot || null;
+      }
+
+      res.json({
+        enabled: true,
+        analysis: visionStatus
+      });
+    } catch (error) {
+      logger.error('Failed to get vision data', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve vision data' });
+    }
+  });
+
   return app;
 }
 
