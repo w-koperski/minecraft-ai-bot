@@ -104,3 +104,31 @@ export interface VisionData {
   enabled: boolean;
   analysis: VisionProcessorStatus | null;
 }
+
+export interface LearningMetricsData {
+  strategyReuseRate: number;
+  strategySuccessRate: number;
+  freshPlanningSuccessRate: number;
+  totalApplications: number;
+  strategySuccesses: number;
+  strategyFailures: number;
+  totalFreshPlans: number;
+  freshSuccesses: number;
+  freshFailures: number;
+  totalPlanningCycles: number;
+}
+
+export interface StrategyData {
+  id: string;
+  context: string;
+  actions: string[];
+  outcome: string;
+  success_rate: number;
+  timestamp: number;
+}
+
+export interface LearningData {
+  enabled: boolean;
+  metrics: LearningMetricsData | null;
+  strategies: StrategyData[];
+}

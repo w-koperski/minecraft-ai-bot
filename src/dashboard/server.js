@@ -288,6 +288,71 @@ function createApp() {
     }
   });
 
+  // GET /api/learning - Learning metrics and recent strategies
+  app.get('/api/learning', async (req, res) => {
+    try {
+      const featureFlags = require('../utils/feature-flags');
+      const enabled = featureFlags.isEnabled('META_LEARNING');
+
+      if (!enabled) {
+        return res.json({ enabled: false, metrics: null, strategies: [] });
+      }
+
+      // Try to read learning metrics from state file
+      const StateManager = require('../utils/state-manager');
+      const stateManager = new StateManager();
+      const state = await stateManager.read('state');
+
+      let metrics = null;
+      const strategies = [];
+
+      if (state && state.learningMetrics) {
+        const LearningMetrics = require('../learning/learning-metrics');
+        const lm = new LearningMetrics();
+
+        // Restore metrics from state
+        const stored = state.learningMetrics;
+        lm.strategyApplications = stored.strategyApplications || 0;
+        lm.strategySuccesses = stored.strategySuccesses || 0;
+        lm.strategyFailures = stored.strategyFailures || 0;
+        lm.freshPlans = stored.freshPlans || 0;
+        lm.freshSuccesses = stored.freshSuccesses || 0;
+        lm.freshFailures = stored.freshFailures || 0;
+
+        metrics = lm.getMetrics();
+      }
+
+      // Try to retrieve stored strategies from knowledge graph
+      if (state && state.knowledgeGraphPath) {
+        try {
+          const KnowledgeGraph = require('../memory/knowledge-graph');
+          const kg = new KnowledgeGraph();
+          await kg.load();
+          const strategyNodes = kg.filterByType('strategy_memory');
+
+          for (const node of strategyNodes.slice(0, 10)) {
+            const props = node.properties || {};
+            strategies.push({
+              id: node.id,
+              context: props.context || '',
+              actions: Array.isArray(props.actions) ? props.actions : [],
+              outcome: props.outcome || '',
+              success_rate: typeof props.success_rate === 'number' ? props.success_rate : 0,
+              timestamp: props.timestamp || null
+            });
+          }
+        } catch (kgErr) {
+          logger.debug('Could not load knowledge graph for strategies', { error: kgErr.message });
+        }
+      }
+
+      res.json({ enabled: true, metrics, strategies });
+    } catch (error) {
+      logger.error('Failed to get learning data', { error: error.message });
+      res.status(500).json({ error: 'Failed to retrieve learning data' });
+    }
+  });
+
   // GET /api/vision - Vision processor status and latest analysis
   app.get('/api/vision', async (req, res) => {
     try {
