@@ -1130,10 +1130,10 @@ Max Concurrent: 4 (most waves)
 - [x] Task 28: Dashboard vision display (visual-engineering) - Show latest screenshot + description
 
 **Phase 2 - Wave 3: Advanced Pathfinding (Tasks 29-32)**
-- Task 29: Water pathfinding (unspecified-high) - Extend mineflayer-pathfinder for swimming
-- Task 30: Nether pathfinding (unspecified-high) - Portal usage, lava avoidance
-- Task 31: Parkour handler (unspecified-high) - Gap jumping with safety checks
-- Task 32: Safety checks (quick) - No parkour if health ≤10, no water >30s without boat
+- [x] Task 29: Water pathfinding (unspecified-high) - Extend mineflayer-pathfinder for swimming
+- [x] Task 30: Nether pathfinding (unspecified-high) - Portal usage, lava avoidance
+- [x] Task 31: Parkour handler (unspecified-high) - Gap jumping with safety checks
+- [x] Task 32: Safety checks (quick) - No parkour if health ≤10, no water >30s without boat
 
 **Phase 2 - Wave 4: Integration + Testing (Tasks 33-36)**
 - Task 33: Vision-guided navigation (deep) - Use vision for complex terrain decisions

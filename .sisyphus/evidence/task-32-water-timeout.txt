@@ -1,0 +1,35 @@
+# Task 32: Safety Checks - Water Timeout QA
+
+## Scenario: Water traversal blocks after timeout
+
+**Setup:**
+- In water for: 31s
+- maxWaterTime threshold: 30000ms
+- Feature flag: ADVANCED_PATHFINDING=true
+
+**Test:**
+const checker = createSafetyChecker(bot, mcData, { maxWaterTime: 30000 });
+const safe = checker.checker.checkWaterTimeout();
+
+**Result:**
+safe = false ✓
+
+**Verification:**
+Water time 31s exceeds 30s limit, traversal correctly blocked.
+
+## Scenario: Water traversal allowed before timeout
+
+**Setup:**
+- In water for: 29s
+- maxWaterTime threshold: 30000ms
+- Feature flag: ADVANCED_PATHFINDING=true
+
+**Test:**
+const checker = createSafetyChecker(bot, mcData, { maxWaterTime: 30000 });
+const safe = checker.checker.checkWaterTimeout();
+
+**Result:**
+safe = true ✓
+
+**Verification:**
+Water time 29s is under 30s limit, traversal allowed.

@@ -1,0 +1,35 @@
+# Task 32: Safety Checks - Health Blocking QA
+
+## Scenario: Health threshold blocks parkour
+
+**Setup:**
+- Bot health: 8
+- minHealth threshold: 10
+- Feature flag: ADVANCED_PATHFINDING=true
+
+**Test:**
+const checker = createSafetyChecker(bot, mcData, { minHealth: 10 });
+const safe = checker.checker.isParkourSafe(8);
+
+**Result:**
+safe = false ✓
+
+**Verification:**
+Health 8 <= minHealth 10, parkour correctly blocked.
+
+## Scenario: Health above threshold allows parkour
+
+**Setup:**
+- Bot health: 12
+- minHealth threshold: 10
+- Feature flag: ADVANCED_PATHFINDING=true
+
+**Test:**
+const checker = createSafetyChecker(bot, mcData, { minHealth: 10 });
+const safe = checker.checker.isParkourSafe(12);
+
+**Result:**
+safe = true ✓
+
+**Verification:**
+Health 12 > minHealth 10, parkour correctly allowed.
