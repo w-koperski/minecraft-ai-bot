@@ -25,6 +25,7 @@ const { getRelationship, formatForPrompt } = require('../utils/relationship-stat
 const KnowledgeGraph = require('../memory/knowledge-graph');
 const StrategyMemory = require('../learning/strategy-memory');
 const StrategyApplicator = require('../learning/strategy-applicator');
+const LearningMetrics = require('../learning/learning-metrics');
 
 // Loop interval (milliseconds)
 const STRATEGY_INTERVAL = parseInt(process.env.STRATEGY_INTERVAL) || 3000;
@@ -54,6 +55,7 @@ class Strategy {
     this.knowledgeGraph = new KnowledgeGraph();
     this.strategyMemory = new StrategyMemory(this.knowledgeGraph);
     this.strategyApplicator = new StrategyApplicator(this.strategyMemory);
+    this.learningMetrics = new LearningMetrics({ trackTimestamps: true });
 
     this.running = false;
     this.loopTimer = null;
@@ -69,6 +71,7 @@ class Strategy {
     this.lastPosition = null;
     this.lastProgressTime = Date.now();
     this.lastStateHash = null;
+    this._pendingStrategyOutcome = null;
   }
 
   /**
@@ -226,11 +229,13 @@ class Strategy {
       const context = await this.buildPlanningContext(state, goal);
 
       let appliedStrategy = null;
+      let strategyWasApplied = false;
       if (featureFlags.isEnabled('META_LEARNING')) {
         try {
           const strategyContext = `Goal: ${goal}. Position: (${state.position.x.toFixed(0)}, ${state.position.y.toFixed(0)}, ${state.position.z.toFixed(0)}). Health: ${state.health}/20. Inventory: ${state.inventory.length} items.`;
           appliedStrategy = this.strategyApplicator.applyStrategies(strategyContext);
           if (appliedStrategy) {
+            strategyWasApplied = true;
             logger.info('Strategy: Applied learned strategy', {
               strategyId: appliedStrategy.strategy.id,
               confidence: appliedStrategy.confidence.toFixed(3)
@@ -311,12 +316,18 @@ class Strategy {
         this.planHistory.shift();
       }
 
-    logger.info('Strategy: Plan created', {
-      plan: plan.map(a => a.action || a.type),
-      steps: plan.length
-    });
+      logger.info('Strategy: Plan created', {
+        plan: plan.map(a => a.action || a.type),
+        steps: plan.length
+      });
 
-    await this._storePlanOutcome(plan, state, true);
+      if (strategyWasApplied) {
+        this._pendingStrategyOutcome = 'strategy';
+      } else {
+        this._pendingStrategyOutcome = 'fresh';
+      }
+
+      await this._storePlanOutcome(plan, state, true);
 
   } catch (error) {
       logger.error('Strategy: Plan creation failed', { 
@@ -703,7 +714,8 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       historySize: this.planHistory.length,
       actionHistorySize: this.actionHistory.length,
       timeSinceProgress: Date.now() - this.lastProgressTime,
-      strategyApplicator: this.strategyApplicator.getStatus()
+      strategyApplicator: this.strategyApplicator.getStatus(),
+      learningMetrics: this.learningMetrics.getMetrics()
     };
   }
 
@@ -841,6 +853,15 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       Date.now(),
       importance
     );
+
+    if (this._pendingStrategyOutcome) {
+      if (this._pendingStrategyOutcome === 'strategy') {
+        this.learningMetrics.recordStrategyApplication(true, success);
+      } else {
+        this.learningMetrics.recordFreshPlanning(success);
+      }
+      this._pendingStrategyOutcome = null;
+    }
 
     logger.debug('Strategy: Stored plan outcome in knowledge graph', { success });
   }
