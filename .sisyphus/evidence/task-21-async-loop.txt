@@ -1,0 +1,88 @@
+QA Evidence: Task 21 - VisionProcessor Async Loop
+=====================================================
+Date: 2026-04-19
+
+## Scenario 1: Async loop runs without blocking Pilot
+
+### Test Setup
+- VisionProcessor initialized with mock bot instance
+- Pilot loop timing should remain unaffected (200-2000ms)
+
+### Test Results
+- VisionProcessor uses setTimeout (not setInterval) for scheduling
+- Each iteration schedules the next AFTER completing, preventing overlap
+- Adaptive intervals: danger=2000ms, active=4000ms, idle=10000ms
+- Timer cleared on stop (verified in test: "should clear timer on stop")
+- Timer not scheduling when not running (verified in test: "should not schedule if not running")
+
+### Non-blocking Verification
+- Test "should not block the main thread during analysis" PASSED
+- VisionProcessor.loop() is async - returns Promise
+- Screenshot capture and analysis are scheduled through rate limiter
+- The Pilot loop (200-2000ms) is completely independent
+- VisionProcessor never calls or references Pilot
+
+### Key Design Decisions
+1. setTimeout pattern (not setInterval) prevents loop stacking
+2. scheduleNextLoop() schedules after loop() completes
+3. Errors caught in scheduleNextLoop() prevent crash propagation
+4. Rate limiter ensures API calls don't exceed 20 RPM budget
+
+### Conclusion
+✅ PASS: VisionProcessor runs independently, does not block Pilot
+
+---
+
+## Scenario 2: Rate limiter enforces 20 RPM
+
+### Test Setup
+- VisionProcessor uses injected vision-rate-limiter
+- All API calls go through rateLimiter.schedule()
+
+### Test Results
+- Test "should schedule all API calls through vision rate limiter" PASSED
+  - 3 consecutive loop() calls → 3 schedule() calls
+  - Each call passes an async function to the rate limiter
+- Test "should pass the analysis function to rate limiter" PASSED
+  - Verified schedule() receives a callable function
+  - Rate limiter controls when the function actually executes
+- Test "should re-throw rate limiter errors" PASSED
+  - Rate limit errors propagate from schedule() to loop()
+  - Loop catches and handles them appropriately
+
+### Rate Limit Integration
+- VisionProcessor.rateLimiter defaults to singleton vision-rate-limiter (20 RPM)
+- Can be injected with custom limiter for testing
+- Rate limiter schedules API calls and enforces reservoir
+- On 429 error, rate limiter stops completely (prevents API abuse)
+
+### Conclusion
+✅ PASS: All vision API calls routed through 20 RPM rate limiter
+
+---
+
+## Additional Test Results
+
+### Adaptive Interval Tests
+✅ Mode transitions: idle → danger → active → idle (all verified)
+✅ Interval values: danger=2000, active=4000, idle=10000
+✅ Environment variable overrides: VISION_INTERVAL_MS for global, VISION_INTERVAL_{MODE}_MS for per-mode
+✅ Clamping: min 1000ms, max 30000ms
+
+### Error Resilience Tests
+✅ Continues after rate limit errors (429)
+✅ Continues after general errors (network timeout)
+✅ Tracks error count and last error
+✅ scheduleNextLoop catches unhandled errors
+
+### Feature Flag Tests
+✅ Does not start when ENABLE_VISION=false
+✅ Stops at runtime if feature flag disabled mid-run
+✅ Logs informational message when disabled
+
+### Coverage
+- Statements: 92.48%
+- Branches: 91.76%
+- Functions: 93.75%
+- Lines: 92.85%
+- All above 70% threshold ✓
