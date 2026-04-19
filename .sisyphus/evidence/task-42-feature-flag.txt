@@ -1,0 +1,62 @@
+Task 42: Strategy Application Logic - Feature Flag Disabling Strategy Application
+==================================================================================
+
+Date: 2026-04-19
+Status: COMPLETE
+
+## QA Scenario: META_LEARNING feature flag controls strategy application
+
+When `featureFlags.isEnabled('META_LEARNING')` returns false, the applicator
+short-circuits and returns null without querying StrategyMemory.
+
+### Test Case
+
+```javascript
+// Setup: Feature flag disabled
+jest.mock('../../../src/utils/feature-flags', () => ({
+  isEnabled: jest.fn(() => false)  // META_LEARNING disabled
+}));
+
+const mockSM = createMockStrategyMemory([{
+  strategy: { id: 'good_1', context: 'collect wood', actions: ['dig'], outcome: 'success', timestamp: Date.now() },
+  similarity: 0.9,
+  combinedScore: 0.85,
+  success_rate: 0.95
+}]);
+
+const applicator = new StrategyApplicator(mockSM);
+
+// Act: applyStrategies returns null when feature disabled
+const result = applicator.applyStrategies('Goal: collect wood');
+// result === null
+// mockSM.retrieveSimilarStrategies was NOT called (feature flag checked first)
+```
+
+### Integration Behavior
+
+In `src/layers/strategy.js`, the `createPlan()` method:
+
+```javascript
+if (featureFlags.isEnabled('META_LEARNING')) {
+  // Only builds context and calls applicator when enabled
+  appliedStrategy = this.strategyApplicator.applyStrategies(strategyContext);
+}
+```
+
+When META_LEARNING is disabled:
+- No StrategyMemory retrieval calls
+- No context string building
+- LLM prompt has no "Learned strategy reference" section
+- StrategyApplicator.getStatus() still returns counters (for monitoring)
+- No performance overhead — entire code path skipped
+
+### Environment Variable
+
+`ENABLE_META_LEARNING=false` in `.env` → `featureFlags.isEnabled('META_LEARNING')` → false
+
+### Result: PASS ✓
+
+- Feature flag check before any retrieval
+- Returns null immediately when disabled
+- No StrategyMemory queries when disabled
+- Graceful: planning layer continues normally without learned strategies

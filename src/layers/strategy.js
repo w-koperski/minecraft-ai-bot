@@ -19,9 +19,12 @@
 const logger = require('../utils/logger');
 const StateManager = require('../utils/state-manager');
 const OmnirouteClient = require('../utils/omniroute');
+const featureFlags = require('../utils/feature-flags');
 const { getTraits } = require('../../personality/personality-engine');
 const { getRelationship, formatForPrompt } = require('../utils/relationship-state');
 const KnowledgeGraph = require('../memory/knowledge-graph');
+const StrategyMemory = require('../learning/strategy-memory');
+const StrategyApplicator = require('../learning/strategy-applicator');
 
 // Loop interval (milliseconds)
 const STRATEGY_INTERVAL = parseInt(process.env.STRATEGY_INTERVAL) || 3000;
@@ -49,6 +52,8 @@ class Strategy {
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
     this.knowledgeGraph = new KnowledgeGraph();
+    this.strategyMemory = new StrategyMemory(this.knowledgeGraph);
+    this.strategyApplicator = new StrategyApplicator(this.strategyMemory);
 
     this.running = false;
     this.loopTimer = null;
@@ -219,8 +224,32 @@ class Strategy {
     try {
       // Build context with Short-Term Memory (async for personality/relationship)
       const context = await this.buildPlanningContext(state, goal);
-      
+
+      let appliedStrategy = null;
+      if (featureFlags.isEnabled('META_LEARNING')) {
+        try {
+          const strategyContext = `Goal: ${goal}. Position: (${state.position.x.toFixed(0)}, ${state.position.y.toFixed(0)}, ${state.position.z.toFixed(0)}). Health: ${state.health}/20. Inventory: ${state.inventory.length} items.`;
+          appliedStrategy = this.strategyApplicator.applyStrategies(strategyContext);
+          if (appliedStrategy) {
+            logger.info('Strategy: Applied learned strategy', {
+              strategyId: appliedStrategy.strategy.id,
+              confidence: appliedStrategy.confidence.toFixed(3)
+            });
+          }
+        } catch (strategyError) {
+          logger.warn('Strategy: Strategy application failed, proceeding with normal planning', {
+            error: strategyError.message
+          });
+        }
+      }
+
       // Call LLM
+      let userContent = context;
+      if (appliedStrategy && appliedStrategy.strategy && appliedStrategy.strategy.actions) {
+        const learnedActions = appliedStrategy.strategy.actions.join(' -> ');
+        userContent += `\n\nLearned strategy reference (confidence: ${appliedStrategy.confidence.toFixed(2)}): ${learnedActions}`;
+      }
+
       const messages = [
         {
           role: 'system',
@@ -228,7 +257,7 @@ class Strategy {
         },
         {
           role: 'user',
-          content: context
+          content: userContent
         }
       ];
 
@@ -673,7 +702,8 @@ Think step-by-step, consider prerequisites, and output ONLY the JSON array.`;
       replanAttempts: this.replanAttempts,
       historySize: this.planHistory.length,
       actionHistorySize: this.actionHistory.length,
-      timeSinceProgress: Date.now() - this.lastProgressTime
+      timeSinceProgress: Date.now() - this.lastProgressTime,
+      strategyApplicator: this.strategyApplicator.getStatus()
     };
   }
 

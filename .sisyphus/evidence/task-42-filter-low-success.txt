@@ -1,0 +1,53 @@
+Task 42: Strategy Application Logic - Filtering Low Success Rate Strategies
+============================================================================
+
+Date: 2026-04-19
+Status: COMPLETE
+
+## QA Scenario: Strategies with success_rate < 0.7 are filtered out
+
+The safety threshold prevents applying unreliable strategies. Only strategies
+with success_rate >= minSuccessRate (default 0.7) are considered.
+
+### Test Case
+
+```javascript
+// Setup: StrategyMemory with mixed success rates
+const mockSM = createMockStrategyMemory([
+  {
+    strategy: { id: 'bad_1', context: 'swim in lava', actions: ['jump'], outcome: 'death', timestamp: Date.now() },
+    similarity: 0.9,
+    combinedScore: 0.55,  // high similarity but low combinedScore due to success_rate
+    success_rate: 0.2      // <-- BELOW THRESHOLD
+  },
+  {
+    strategy: { id: 'ok_1', context: 'cross water', actions: ['bridge', 'cross'], outcome: 'crossed safely', timestamp: Date.now() },
+    similarity: 0.75,
+    combinedScore: 0.71,
+    success_rate: 0.75     // <-- ABOVE THRESHOLD
+  }
+]);
+
+const applicator = new StrategyApplicator(mockSM);
+
+// Act: getApplicableStrategies filters out bad_1
+const applicable = applicator.getApplicableStrategies('Need to cross water');
+// applicable.length === 1, applicable[0].strategy.id === 'ok_1'
+
+// Act: applyStrategies skips bad_1, applies ok_1
+const result = applicator.applyStrategies('Need to cross water');
+// result.strategy.id === 'ok_1', result.confidence === 0.71
+```
+
+### Edge Cases Tested
+
+1. **All strategies below threshold**: returns null, planning proceeds normally
+2. **Custom minSuccessRate**: `new StrategyApplicator(sm, { minSuccessRate: 0.9 })` — stricter filtering
+3. **Missing success_rate**: strategies without success_rate property are filtered out
+4. **success_rate exactly 0.7**: included (>= comparison)
+
+### Result: PASS ✓
+
+- Strategies with success_rate < 0.7 never applied
+- Best remaining strategy selected by combinedScore
+- No crash when all strategies filtered — returns null gracefully

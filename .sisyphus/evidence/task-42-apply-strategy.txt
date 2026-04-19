@@ -1,0 +1,51 @@
+Task 42: Strategy Application Logic - Applying a Learned Strategy
+=================================================================
+
+Date: 2026-04-19
+Status: COMPLETE
+
+## QA Scenario: Applying a Learned Strategy
+
+When the bot encounters a situation similar to a past successful experience,
+StrategyApplicator retrieves and applies the best matching strategy.
+
+### Test Case
+
+```javascript
+// Setup: StrategyMemory with a high-success strategy
+const mockSM = createMockStrategyMemory([{
+  strategy: { id: 'wood_1', context: 'collect wood in forest', actions: ['find_tree', 'dig_log', 'collect'], outcome: '64 oak logs', timestamp: Date.now() },
+  similarity: 0.85,
+  combinedScore: 0.82,
+  success_rate: 0.9
+}]);
+
+const applicator = new StrategyApplicator(mockSM);
+
+// Act: Apply to similar context
+const result = applicator.applyStrategies('Goal: collect wood. Position: (100, 64, -200). Health: 20/20.');
+
+// Assert
+expect(result.applied).toBe(true);
+expect(result.strategy.id).toBe('wood_1');
+expect(result.strategy.actions).toEqual(['find_tree', 'dig_log', 'collect']);
+expect(result.confidence).toBe(0.82);
+```
+
+### Integration in Strategy Layer
+
+In `src/layers/strategy.js`, the `createPlan()` method:
+
+1. Builds a context string from current state: goal, position, health, inventory
+2. Calls `this.strategyApplicator.applyStrategies(strategyContext)`
+3. If a strategy is applied, appends to LLM prompt:
+   `Learned strategy reference (confidence: 0.82): find_tree -> dig_log -> collect`
+4. The LLM uses this reference when generating the plan
+5. Errors are caught and logged — planning always proceeds
+
+### Result: PASS ✓
+
+- Strategy with success_rate 0.9 (>= 0.7 threshold) is applied
+- confidence equals combinedScore from StrategyMemory
+- Applied strategy actions injected into LLM prompt
+- appliedCount incremented to 1
