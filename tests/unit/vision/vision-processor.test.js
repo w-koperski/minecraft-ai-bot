@@ -128,18 +128,18 @@ describe('VisionProcessor', () => {
       expect(vp.intervals.idle).toBe(30000);
     });
 
-    it('should initialize with zero analysis state', () => {
-      const vp = new VisionProcessor(mockBot, {
-        visionRateLimiter: mockRateLimiter,
-        featureFlags: mockFeatureFlags
-      });
-
-      expect(vp.latestAnalysis).toBeNull();
-      expect(vp.analysisCount).toBe(0);
-      expect(vp.lastAnalysisTime).toBeNull();
-      expect(vp.errorCount).toBe(0);
-      expect(vp.lastError).toBeNull();
+it('should initialize with zero analysis state', () => {
+    const vp = new VisionProcessor(mockBot, {
+      visionRateLimiter: mockRateLimiter,
+      featureFlags: mockFeatureFlags
     });
+
+    expect(vp.visionState.getLatestAnalysis()).toBeNull();
+    expect(vp.analysisCount).toBe(0);
+    expect(vp.lastAnalysisTime).toBeNull();
+    expect(vp.errorCount).toBe(0);
+    expect(vp.lastError).toBeNull();
+  });
 
     it('should use injected dependencies', () => {
       const vp = new VisionProcessor(mockBot, {
@@ -635,7 +635,7 @@ describe('VisionProcessor', () => {
   });
 
   describe('analyzeScreenshot()', () => {
-    it('should return VisionState-compatible analysis', () => {
+    it('should return VisionState-compatible analysis', async () => {
       const vp = new VisionProcessor(mockBot, {
         visionRateLimiter: mockRateLimiter,
         featureFlags: mockFeatureFlags
@@ -645,7 +645,7 @@ describe('VisionProcessor', () => {
       const screenshot = { timestamp: 12345, position: { x: 1, y: 2, z: 3 } };
       const state = { mode: 'active' };
 
-      const analysis = vp.analyzeScreenshot(screenshot, state);
+      const analysis = await vp.analyzeScreenshot(screenshot, state);
 
       expect(analysis.timestamp).toBe(12345);
       expect(analysis.mode).toBe('active');
@@ -827,14 +827,14 @@ describe('VisionProcessor', () => {
         featureFlags: mockFeatureFlags
       });
 
-      vp.running = true;
-      vp.currentMode = 'active';
-      vp.analysisCount = 10;
-      vp.errorCount = 2;
-      vp.lastAnalysisTime = 1234567890;
-      vp.latestAnalysis = { mode: 'active' };
+vp.running = true;
+    vp.currentMode = 'active';
+    vp.analysisCount = 10;
+    vp.errorCount = 2;
+    vp.lastAnalysisTime = 1234567890;
+    vp.visionState.setAnalysis({ mode: 'active' });
 
-      const status = vp.getStatus();
+    const status = vp.getStatus();
 
       expect(status.running).toBe(true);
       expect(status.mode).toBe('active');
