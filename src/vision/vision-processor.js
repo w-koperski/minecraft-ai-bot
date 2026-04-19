@@ -30,9 +30,15 @@ const DEFAULT_INTERVAL_MS = 10000;
 
 // Threat detection thresholds (aligned with Pilot)
 const THREAT_THRESHOLDS = {
-  hostileMobDistance: 16,  // blocks
-  lavaDistance: 8,         // blocks
-  lowHealth: 6            // hearts (out of 20)
+  hostileMobDistance: 16, // blocks
+  lavaDistance: 8, // blocks
+  lowHealth: 6 // hearts (out of 20)
+};
+
+// Cache configuration
+const CACHE_CONFIG = {
+  maxAgeMs: 5 * 60 * 1000, // 5 minutes
+  maxDistanceBlocks: 16 // Invalidation on position change >16 blocks
 };
 
 class VisionProcessor {
@@ -82,13 +88,23 @@ class VisionProcessor {
     this.currentInterval = this.intervals.idle;
     this.currentMode = 'idle';
 
-    // Analysis state (VisionState placeholder from Task 24)
-    this.latestAnalysis = null;
-    this.analysisCount = 0;
-    this.lastAnalysisTime = null;
-    this.errorCount = 0;
-    this.lastError = null;
-  }
+  // Analysis state (VisionState placeholder from Task 24)
+  this.latestAnalysis = null;
+  this.analysisCount = 0;
+  this.lastAnalysisTime = null;
+  this.errorCount = 0;
+  this.lastError = null;
+
+  // Cache for static analysis elements (terrain, biome, time, weather)
+  this.cache = {
+    static: null,
+    position: null,
+    biome: null,
+    timestamp: null
+  };
+  this.cacheHits = 0;
+  this.cacheMisses = 0;
+}
 
   /**
    * Start the vision processing loop
@@ -305,6 +321,76 @@ class VisionProcessor {
   }
 
   /**
+   * Check if cached static analysis is still valid
+   * Invalidated by: no cache, age >5min, position change >16 blocks, biome change
+   * @param {Object} screenshot - Current screenshot data
+   * @returns {boolean} True if cache is valid and can be reused
+   */
+  isCacheValid(screenshot) {
+    if (!this.cache.timestamp) return false;
+
+    const age = Date.now() - this.cache.timestamp;
+    if (age > CACHE_CONFIG.maxAgeMs) return false;
+
+    if (!screenshot.position || !this.cache.position) return false;
+
+    const dx = screenshot.position.x - this.cache.position.x;
+    const dz = screenshot.position.z - this.cache.position.z;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    if (distance > CACHE_CONFIG.maxDistanceBlocks) return false;
+
+    if (screenshot.biome && this.cache.biome && screenshot.biome !== this.cache.biome) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Extract static elements from analysis for caching
+   * Static: terrain, biome, time, weather (filtered observations)
+   * Dynamic: mobs, players, threats, health are never cached
+   * @param {Object} analysis - Full analysis result
+   * @param {Object} screenshot - Screenshot data used for the analysis
+   * @returns {Object} Static-only subset of analysis
+   */
+  _extractStaticElements(analysis, screenshot) {
+    const dynamicKeywords = ['mob', 'player', 'entity', 'threat', 'health', 'hunger'];
+    return {
+      terrain: analysis.terrain || null,
+      biome: analysis.biome || screenshot.biome || null,
+      timeOfDay: analysis.timeOfDay || null,
+      weather: analysis.weather || null,
+      observations: (analysis.observations || []).filter(obs =>
+        typeof obs === 'string' &&
+        !dynamicKeywords.some(kw => obs.toLowerCase().includes(kw))
+      )
+    };
+  }
+
+  /**
+   * Update cache with new static analysis data
+   * @param {Object} analysis - Full analysis result
+   * @param {Object} screenshot - Screenshot data used for the analysis
+   */
+  updateCache(analysis, screenshot) {
+    this.cache.static = this._extractStaticElements(analysis, screenshot);
+    this.cache.position = screenshot.position ? { ...screenshot.position } : null;
+    this.cache.biome = analysis.biome || screenshot.biome || null;
+    this.cache.timestamp = Date.now();
+  }
+
+  /**
+   * Clear the analysis cache
+   */
+  clearCache() {
+    this.cache.static = null;
+    this.cache.position = null;
+    this.cache.biome = null;
+    this.cache.timestamp = null;
+  }
+
+  /**
    * Build structured prompt for vision analysis
    * @param {Object} screenshot - Screenshot data
    * @param {Object} state - Current bot state
@@ -467,14 +553,49 @@ Example:
    * @returns {Object} Analysis result (VisionState-compatible format)
    */
   analyzeScreenshot(screenshot, state) {
-    // Build structured prompt based on mode
     const prompt = this.buildVisionPrompt(screenshot, state);
-    
+
+    // Check cache validity for static elements
+    const cacheValid = this.isCacheValid(screenshot);
+
+    if (cacheValid && this.cache.static) {
+      // Cache hit: merge cached static data with fresh dynamic analysis
+      this.cacheHits++;
+      logger.debug('VisionProcessor: Cache hit, merging static data with dynamic analysis', {
+        cacheAge: Date.now() - this.cache.timestamp,
+        cacheHits: this.cacheHits,
+        cacheMisses: this.cacheMisses
+      });
+
+      return {
+        timestamp: screenshot.timestamp,
+        mode: this.currentMode,
+        position: screenshot.position,
+        observations: [...(this.cache.static.observations || []), ...(this._getDynamicObservations(state))],
+        threats: this._getDynamicThreats(state),
+        entities: this._getDynamicEntities(state),
+        blocks: [],
+        confidence: 0,
+        state: state.mode,
+        prompt: prompt,
+        fromCache: true
+      };
+    }
+
+    // Cache miss: full analysis required
+    this.cacheMisses++;
+    logger.debug('VisionProcessor: Cache miss, performing full analysis', {
+      reason: !this.cache.timestamp ? 'no_cache' :
+        (Date.now() - this.cache.timestamp > CACHE_CONFIG.maxAgeMs) ? 'expired' :
+          'position_change',
+      cacheHits: this.cacheHits,
+      cacheMisses: this.cacheMisses
+    });
+
     // TODO: Send prompt to vision API (Task 23 custom endpoint)
-    // For now, return placeholder structure
     // In production: const response = await visionClient.analyze(screenshot.data, prompt);
-    
-    return {
+
+    const analysis = {
       timestamp: screenshot.timestamp,
       mode: this.currentMode,
       position: screenshot.position,
@@ -484,8 +605,72 @@ Example:
       blocks: [],
       confidence: 0,
       state: state.mode,
-      prompt: prompt  // Include prompt for debugging
+      prompt: prompt,
+      fromCache: false
     };
+
+    // Update cache with static elements from this analysis
+    this.updateCache(analysis, screenshot);
+
+    return analysis;
+  }
+
+  /**
+   * Get dynamic observations from current bot state (never cached)
+   * @param {Object} state - Current bot state
+   * @returns {string[]} Dynamic observation strings
+   */
+  _getDynamicObservations(state) {
+    const observations = [];
+    if (state.mode === 'danger') {
+      observations.push('Danger detected in vicinity');
+    }
+    if (this.bot?.health !== undefined && this.bot.health < 6) {
+      observations.push(`Low health: ${this.bot.health}/20`);
+    }
+    return observations;
+  }
+
+  /**
+   * Get dynamic threats from current bot state (never cached)
+   * @param {Object} state - Current bot state
+   * @returns {string[]} Dynamic threat strings
+   */
+  _getDynamicThreats(state) {
+    if (state.mode !== 'danger') return [];
+
+    const threats = [];
+    const hostileMobs = this.getHostileMobs();
+    if (hostileMobs.length > 0) {
+      threats.push(`${hostileMobs.length} hostile mob(s) nearby`);
+    }
+    if (this.isNearLava()) {
+      threats.push('Lava detected nearby');
+    }
+    if (this.bot?.health !== undefined && this.bot.health < 6) {
+      threats.push(`Critical health: ${this.bot.health}/20`);
+    }
+    return threats;
+  }
+
+  /**
+   * Get dynamic entities from current bot state (never cached)
+   * @param {Object} state - Current bot state
+   * @returns {Object[]} Dynamic entity objects
+   */
+  _getDynamicEntities(state) {
+    if (state.mode !== 'danger') return [];
+
+    const entities = [];
+    const hostileMobs = this.getHostileMobs();
+    for (const mob of hostileMobs) {
+      entities.push({
+        type: mob.name || 'unknown',
+        distance: Math.floor(mob.position.distanceTo(this.bot.entity.position)),
+        direction: 'nearby'
+      });
+    }
+    return entities;
   }
 
   /**
@@ -569,7 +754,10 @@ Example:
       lastAnalysisTime: this.lastAnalysisTime,
       lastError: this.lastError,
       hasAnalysis: this.latestAnalysis !== null,
-      intervals: { ...this.intervals }
+      intervals: { ...this.intervals },
+      cacheHits: this.cacheHits,
+      cacheMisses: this.cacheMisses,
+      cacheAge: this.cache.timestamp ? Date.now() - this.cache.timestamp : null
     };
   }
 }

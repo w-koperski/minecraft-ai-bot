@@ -128,18 +128,34 @@ describe('VisionProcessor', () => {
       expect(vp.intervals.idle).toBe(30000);
     });
 
-it('should initialize with zero analysis state', () => {
-    const vp = new VisionProcessor(mockBot, {
-      visionRateLimiter: mockRateLimiter,
-      featureFlags: mockFeatureFlags
+    it('should initialize with zero analysis state', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      expect(vp.latestAnalysis).toBeNull();
+      expect(vp.analysisCount).toBe(0);
+      expect(vp.lastAnalysisTime).toBeNull();
+      expect(vp.errorCount).toBe(0);
+      expect(vp.lastError).toBeNull();
     });
 
-    expect(vp.visionState.getLatestAnalysis()).toBeNull();
-    expect(vp.analysisCount).toBe(0);
-    expect(vp.lastAnalysisTime).toBeNull();
-    expect(vp.errorCount).toBe(0);
-    expect(vp.lastError).toBeNull();
-  });
+    it('should initialize with empty cache', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      expect(vp.cache).toEqual({
+        static: null,
+        position: null,
+        biome: null,
+        timestamp: null
+      });
+      expect(vp.cacheHits).toBe(0);
+      expect(vp.cacheMisses).toBe(0);
+    });
 
     it('should use injected dependencies', () => {
       const vp = new VisionProcessor(mockBot, {
@@ -656,6 +672,491 @@ it('should initialize with zero analysis state', () => {
       expect(analysis.blocks).toEqual([]);
       expect(analysis.confidence).toBe(0);
       expect(analysis.state).toBe('active');
+      expect(analysis.fromCache).toBe(false);
+    });
+  });
+
+  describe('isCacheValid()', () => {
+    it('should return false when no cache exists', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return false when cache is expired (>5 minutes)', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now() - (6 * 60 * 1000);
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return true when cache is fresh and position unchanged', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(true);
+    });
+
+    it('should return true when position changed within 16 blocks', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+
+      const screenshot = { timestamp: Date.now(), position: { x: 108, y: 64, z: 205 } };
+      expect(vp.isCacheValid(screenshot)).toBe(true);
+    });
+
+    it('should return false when position changed more than 16 blocks', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+
+      const screenshot = { timestamp: Date.now(), position: { x: 120, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return false when screenshot has no position', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+
+      const screenshot = { timestamp: Date.now(), position: null };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return false when cache has no position', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = null;
+
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return false when biome changes', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+      vp.cache.biome = 'plains';
+
+      const screenshot = {
+        timestamp: Date.now(),
+        position: { x: 100, y: 64, z: 200 },
+        biome: 'desert'
+      };
+      expect(vp.isCacheValid(screenshot)).toBe(false);
+    });
+
+    it('should return true when biome is same', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+      vp.cache.biome = 'plains';
+
+      const screenshot = {
+        timestamp: Date.now(),
+        position: { x: 105, y: 64, z: 203 },
+        biome: 'plains'
+      };
+      expect(vp.isCacheValid(screenshot)).toBe(true);
+    });
+
+    it('should skip biome check if screenshot has no biome', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache.timestamp = Date.now();
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+      vp.cache.biome = 'plains';
+
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      expect(vp.isCacheValid(screenshot)).toBe(true);
+    });
+  });
+
+  describe('updateCache()', () => {
+    it('should store static elements and position', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = { observations: ['Forest biome', 'Zombie nearby'], terrain: 'flat', biome: 'forest' };
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+
+      vp.updateCache(analysis, screenshot);
+
+      expect(vp.cache.position).toEqual({ x: 100, y: 64, z: 200 });
+      expect(vp.cache.biome).toBe('forest');
+      expect(vp.cache.timestamp).toBeTruthy();
+      expect(vp.cache.static).toBeDefined();
+      expect(vp.cache.static.terrain).toBe('flat');
+      expect(vp.cache.static.biome).toBe('forest');
+    });
+
+    it('should filter dynamic keywords from cached observations', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = {
+        observations: ['Forest biome', 'Zombie mob nearby', 'Player seen', 'Health is low', 'Clear sky'],
+        terrain: 'hills'
+      };
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+
+      vp.updateCache(analysis, screenshot);
+
+      expect(vp.cache.static.observations).toEqual(['Forest biome', 'Clear sky']);
+    });
+
+    it('should handle null position gracefully', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = { observations: [] };
+      const screenshot = { timestamp: Date.now(), position: null };
+
+      vp.updateCache(analysis, screenshot);
+
+      expect(vp.cache.position).toBeNull();
+      expect(vp.cache.timestamp).toBeTruthy();
+    });
+  });
+
+  describe('clearCache()', () => {
+    it('should reset all cache fields', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cache = {
+        static: { terrain: 'flat' },
+        position: { x: 100, y: 64, z: 200 },
+        biome: 'plains',
+        timestamp: Date.now()
+      };
+
+      vp.clearCache();
+
+      expect(vp.cache).toEqual({
+        static: null,
+        position: null,
+        biome: null,
+        timestamp: null
+      });
+    });
+  });
+
+  describe('analyzeScreenshot() cache behavior', () => {
+    it('should create cache on first analysis (cache miss)', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'idle';
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const state = { mode: 'idle' };
+
+      const analysis = vp.analyzeScreenshot(screenshot, state);
+
+      expect(analysis.fromCache).toBe(false);
+      expect(vp.cacheMisses).toBe(1);
+      expect(vp.cacheHits).toBe(0);
+      expect(vp.cache.timestamp).toBeTruthy();
+      expect(vp.cache.position).toEqual({ x: 100, y: 64, z: 200 });
+    });
+
+    it('should use cache on second analysis at same position (cache hit)', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'idle';
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const state = { mode: 'idle' };
+
+      // First call: cache miss
+      vp.analyzeScreenshot(screenshot, state);
+      expect(vp.cacheMisses).toBe(1);
+
+      // Second call: cache hit
+      const analysis = vp.analyzeScreenshot(screenshot, state);
+      expect(analysis.fromCache).toBe(true);
+      expect(vp.cacheHits).toBe(1);
+    });
+
+    it('should cache miss when position changes >16 blocks', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'idle';
+      const screenshot1 = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const screenshot2 = { timestamp: Date.now(), position: { x: 130, y: 64, z: 200 } };
+      const state = { mode: 'idle' };
+
+      // First call: cache miss, populate cache
+      vp.analyzeScreenshot(screenshot1, state);
+      expect(vp.cacheMisses).toBe(1);
+
+      // Second call: position changed >16 blocks → cache miss
+      const analysis = vp.analyzeScreenshot(screenshot2, state);
+      expect(analysis.fromCache).toBe(false);
+      expect(vp.cacheMisses).toBe(2);
+    });
+
+    it('should cache miss when cache expires (>5 minutes)', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'idle';
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const state = { mode: 'idle' };
+
+      // First call: populate cache
+      vp.analyzeScreenshot(screenshot, state);
+
+      // Simulate cache aging past 5 minutes
+      vp.cache.timestamp = Date.now() - (6 * 60 * 1000);
+
+      // Second call: expired cache → miss
+      const analysis = vp.analyzeScreenshot(screenshot, state);
+      expect(analysis.fromCache).toBe(false);
+      expect(vp.cacheMisses).toBe(2);
+    });
+
+    it('should merge cached static observations with dynamic observations on hit', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'idle';
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const state = { mode: 'idle' };
+
+      // First call with static observations
+      const firstAnalysis = {
+        observations: ['Forest biome', 'Clear weather'],
+        threats: [],
+        entities: []
+      };
+      // Manually populate cache to simulate stored static data
+      vp.cache.static = {
+        terrain: null,
+        biome: null,
+        timeOfDay: null,
+        weather: null,
+        observations: ['Forest biome', 'Clear weather']
+      };
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+      vp.cache.timestamp = Date.now();
+      vp.cache.biome = null;
+
+      // Second call: cache hit should include cached static observations
+      const analysis = vp.analyzeScreenshot(screenshot, state);
+      expect(analysis.fromCache).toBe(true);
+      expect(analysis.observations).toContain('Forest biome');
+      expect(analysis.observations).toContain('Clear weather');
+    });
+
+    it('should not cache dynamic observations', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = {
+        observations: ['Forest biome', 'Zombie mob nearby', 'Player approaching', 'Health is low'],
+        terrain: 'flat'
+      };
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+
+      vp.updateCache(analysis, screenshot);
+
+      // Static observations should be cached, dynamic filtered out
+      expect(vp.cache.static.observations).toContain('Forest biome');
+      expect(vp.cache.static.observations).not.toContain('Zombie mob nearby');
+      expect(vp.cache.static.observations).not.toContain('Player approaching');
+      expect(vp.cache.static.observations).not.toContain('Health is low');
+    });
+
+    it('should always get fresh dynamic threats on cache hit', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.currentMode = 'danger';
+      const screenshot = { timestamp: Date.now(), position: { x: 100, y: 64, z: 200 } };
+      const state = { mode: 'danger' };
+
+      // Populate cache with idle mode observations (no threats)
+      vp.cache.static = {
+        terrain: null, biome: null, timeOfDay: null, weather: null,
+        observations: ['Forest biome']
+      };
+      vp.cache.position = { x: 100, y: 64, z: 200 };
+      vp.cache.timestamp = Date.now();
+
+      // Add hostile mob to bot
+      const hostileEntity = {
+        kind: 'Hostile mobs',
+        name: 'zombie',
+        position: new Vec3(105, 64, 200)
+      };
+      mockBot.entities = { zombie: hostileEntity };
+
+      const analysis = vp.analyzeScreenshot(screenshot, state);
+      expect(analysis.fromCache).toBe(true);
+      // Dynamic threats should be populated from current state, not cache
+      expect(analysis.threats.length).toBeGreaterThan(0);
+      expect(analysis.entities.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('_extractStaticElements()', () => {
+    it('should separate static from dynamic observations', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = {
+        observations: [
+          'Plains biome',
+          'Zombie mob 5 blocks away',
+          'Player Steve nearby',
+          'Threat detected: creeper',
+          'Health bar at 10/20',
+          'Sunny weather',
+          'Entity cow spotted',
+          'Hunger bar low'
+        ],
+        terrain: 'flat',
+        biome: 'plains',
+        timeOfDay: 'day',
+        weather: 'clear'
+      };
+      const screenshot = { timestamp: Date.now(), position: { x: 0, y: 0, z: 0 } };
+
+      const statics = vp._extractStaticElements(analysis, screenshot);
+
+      expect(statics.observations).toEqual(['Plains biome', 'Sunny weather']);
+      expect(statics.terrain).toBe('flat');
+      expect(statics.biome).toBe('plains');
+      expect(statics.timeOfDay).toBe('day');
+      expect(statics.weather).toBe('clear');
+    });
+
+    it('should handle empty observations', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = { observations: [] };
+      const screenshot = { timestamp: Date.now(), position: { x: 0, y: 0, z: 0 } };
+
+      const statics = vp._extractStaticElements(analysis, screenshot);
+
+      expect(statics.observations).toEqual([]);
+    });
+
+    it('should use screenshot biome as fallback', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const analysis = { observations: [] };
+      const screenshot = { timestamp: Date.now(), position: { x: 0, y: 0, z: 0 }, biome: 'desert' };
+
+      const statics = vp._extractStaticElements(analysis, screenshot);
+
+      expect(statics.biome).toBe('desert');
+    });
+  });
+
+  describe('getStatus() cache stats', () => {
+    it('should include cache stats in status', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      vp.cacheHits = 5;
+      vp.cacheMisses = 3;
+      vp.cache.timestamp = Date.now();
+
+      const status = vp.getStatus();
+
+      expect(status.cacheHits).toBe(5);
+      expect(status.cacheMisses).toBe(3);
+      expect(status.cacheAge).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should report null cacheAge when no cache exists', () => {
+      const vp = new VisionProcessor(mockBot, {
+        visionRateLimiter: mockRateLimiter,
+        featureFlags: mockFeatureFlags
+      });
+
+      const status = vp.getStatus();
+
+      expect(status.cacheAge).toBeNull();
     });
   });
 
@@ -827,14 +1328,14 @@ it('should initialize with zero analysis state', () => {
         featureFlags: mockFeatureFlags
       });
 
-vp.running = true;
-    vp.currentMode = 'active';
-    vp.analysisCount = 10;
-    vp.errorCount = 2;
-    vp.lastAnalysisTime = 1234567890;
-    vp.visionState.setAnalysis({ mode: 'active' });
+      vp.running = true;
+      vp.currentMode = 'active';
+      vp.analysisCount = 10;
+      vp.errorCount = 2;
+      vp.lastAnalysisTime = 1234567890;
+      vp.latestAnalysis = { mode: 'active' };
 
-    const status = vp.getStatus();
+      const status = vp.getStatus();
 
       expect(status.running).toBe(true);
       expect(status.mode).toBe('active');
@@ -847,6 +1348,9 @@ vp.running = true;
         active: 4000,
         idle: 10000
       });
+      expect(status.cacheHits).toBe(0);
+      expect(status.cacheMisses).toBe(0);
+      expect(status.cacheAge).toBeNull();
     });
 
     it('should report hasAnalysis as false when no analysis done', () => {

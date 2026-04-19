@@ -387,3 +387,30 @@ Bot spawns → initializeLayers() → if ENABLE_DRIVES=true:
 - State-manager tests: 28 passed (including driveScores get/set tests)
 - Dashboard integration tests: 41 passed (including GET /api/drives)
 - 2 pre-existing failures in skill-executor tests (unrelated to this task)
+
+## [2026-04-19] Task 25: Pilot Vision Integration (Deep)
+
+### Implementation
+- Modified `src/layers/pilot.js` to read vision analysis from VisionState, non-blocking
+- Constructor: `constructor(bot, options = {})` with `this.visionState = options.visionState || null`
+- `_buildVisionBlock()` method: synchronous, checks feature flag + visionState + freshness (>=30s is stale), returns vision context string or ''
+- `buildThreatPrompt()` includes `${visionBlock}` between relationship block and Current State
+- Created `tests/unit/layers/pilot.test.js` with 30 tests (all passing)
+
+### Key Design Decisions
+- **Dependency injection over singleton**: VisionState is NOT a singleton. Each `new VisionState()` creates an independent instance. A shared instance must be created externally and passed via `options.visionState`. This is critical - if Pilot creates its own VisionState, it would always be empty (no analysis data).
+- **Staleness threshold: >=30s (not >30s)**: Changed from `> 30000` to `>= 30000` for more intuitive semantics. Analysis exactly 30s old is considered stale. Boundary test failed with `>` due to timing race between test setup's `Date.now()` and code execution's `Date.now()`.
+- **Feature flag key is 'VISION' not 'ENABLE_VISION'**: `featureFlags.isEnabled('VISION')` checks `flags.VISION`, which is parsed from `ENABLE_VISION` env var. The env var name and the flag key are different.
+- **Synchronous, non-blocking**: `_buildVisionBlock()` is fully synchronous. No async/await on vision. Vision data is already in memory via VisionState, so reading is <1ms.
+- **Graceful degradation chain**: Feature flag disabled → returns ''; No visionState → returns ''; No analysis → returns ''; Stale analysis → returns '' with debug log; No meaningful fields → returns ''; Otherwise → builds context string.
+- **Prompt placement**: Vision block inserted between relationship context and Current State in `buildThreatPrompt()`, so LLM sees observations/threats before deciding actions.
+
+### Testing Gotchas
+- **No existing pilot unit tests**: `tests/unit/layers/pilot*.js` didn't exist. Created from scratch using `tests/unit/action-awareness.test.js` as pattern reference.
+- **Mocking featureFlags**: Must mock both `isEnabled` and the module require. Use `jest.mock('../../src/utils/feature-flags', ...)` with factory function.
+- **Mocking VisionState**: Create simple mock objects with `getLatestAnalysis` method returning structured analysis data. No need to mock the full VisionState class.
+- **Pre-existing failures**: `vision-processor.test.js` has 2 failures (VisionState not injected into VisionProcessor) and `rate-limits.test.js` has failures - both unrelated to this task.
+
+### Files Changed
+- `src/layers/pilot.js`: Added featureFlags import, constructor options, `_buildVisionBlock()`, vision block in `buildThreatPrompt()`
+- `tests/unit/layers/pilot.test.js`: NEW, 499 lines, 30 tests
