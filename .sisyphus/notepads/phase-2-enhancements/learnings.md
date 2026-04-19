@@ -702,3 +702,31 @@ Bot spawns → initializeLayers() → if ENABLE_DRIVES=true:
 ### QA Results
 - Unit tests passed for safety-checker
 - Evidence files created for health blocking and water timeout scenarios
+## Task 33 Learnings
+
+- Kept vision/pathfinding coupling low by adding a dedicated bridge that only reads VisionState synchronously.
+- Vision hints work best as soft movement biases (costs, buffers, block/avoid flags) rather than algorithm rewrites.
+- Stale-vision filtering is essential to prevent outdated terrain judgments from influencing navigation.
+- Feature gating needs both `VISION` and `ADVANCED_PATHFINDING` to stay enabled for safe degradation.
+
+## [2026-04-19 11:30] Task 33: Vision-guided navigation
+
+**Implementation Summary:**
+- Created VisionPathfindingBridge (128 lines) with 4 hint methods
+- Integrated vision into water-pathfinder, nether-pathfinder, parkour-handler, safety-checker
+- All pathfinders accept optional visionBridge constructor parameter
+- Vision hints are non-blocking and feature-flag gated (VISION + ADVANCED_PATHFINDING)
+- Stale data detection: 30s threshold
+
+**Test Coverage:**
+- 6 unit tests (vision-pathfinding-bridge.test.js)
+- 4 integration tests (vision-pathfinding.test.js)
+- All tests pass
+
+**Pattern Established:**
+- Vision bridge uses regex-based observation parsing
+- Returns null when disabled or stale
+- Each pathfinder calls appropriate hint method (getWaterHint, getNetherHint, etc.)
+- Safety checker blocks parkour when vision detects hazards
+
+**Verification:** APPROVED - All 4 phases passed

@@ -2,6 +2,7 @@
 
 const logger = require('../utils/logger');
 const featureFlags = require('../utils/feature-flags');
+const { VisionPathfindingBridge } = require('./vision-pathfinding-bridge');
 
 const SAFETY_DEFAULTS = {
   minHealth: 10,
@@ -12,6 +13,9 @@ class SafetyChecker {
   constructor(bot, options = {}) {
     this.bot = bot;
     this.enabled = featureFlags.isEnabled('ADVANCED_PATHFINDING');
+    this.visionBridge = options.visionBridge || new VisionPathfindingBridge({
+      visionState: options.visionState || null
+    });
 
     this.minHealth = options.minHealth !== undefined
       ? options.minHealth
@@ -30,6 +34,11 @@ class SafetyChecker {
     }
 
     if (health === undefined || health === null) {
+      return false;
+    }
+
+    const visionHazard = this.getVisionSafetyHint();
+    if (visionHazard && visionHazard.hasHazards) {
       return false;
     }
 
@@ -98,6 +107,7 @@ class SafetyChecker {
 
     return {
       enabled: this.enabled,
+      vision: this.getVisionSafetyHint(),
       health: this.bot?.health,
       minHealth: this.minHealth,
       maxWaterTime: this.maxWaterTime,
@@ -108,6 +118,14 @@ class SafetyChecker {
       elapsed,
       waterTimeoutSafe: this.enabled ? (inWater ? (this.hasBoat() || elapsed <= this.maxWaterTime) : true) : false
     };
+  }
+
+  getVisionSafetyHint() {
+    if (!this.visionBridge || !this.visionBridge.isEnabled()) {
+      return null;
+    }
+
+    return this.visionBridge.getSafetyHint();
   }
 }
 
