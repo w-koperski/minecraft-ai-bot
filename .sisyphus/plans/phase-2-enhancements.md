@@ -1124,8 +1124,8 @@ Max Concurrent: 4 (most waves)
 - Task 24: VisionState object (quick) - Non-blocking state for Pilot to read
 
 **Phase 2 - Wave 2: Vision Integration (Tasks 25-28)**
-- Task 25: Pilot vision integration (deep) - Add vision context to Pilot decisions, non-blocking
-- Task 26: Vision prompt templates (quick) - Structured prompts for spatial reasoning
+- [x] Task 25: Pilot vision integration (deep) - Add vision context to Pilot decisions, non-blocking
+- [x] Task 26: Vision prompt templates (quick) - Structured prompts for spatial reasoning
 - [x] Task 27: Vision caching strategy (quick) - Cache static elements, refresh dynamic
 - [x] Task 28: Dashboard vision display (visual-engineering) - Show latest screenshot + description
 
