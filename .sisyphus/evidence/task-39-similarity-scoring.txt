@@ -1,0 +1,82 @@
+TASK 39: Similarity Scoring - COMPLETE
+========================================
+
+Date: 2026-04-19
+Status: ✓ VERIFIED (Implemented in Task 38)
+
+## Implementation Summary
+
+Similarity scoring was implemented as part of Task 38 in `src/learning/strategy-memory.js` within the `retrieveSimilarStrategies()` method.
+
+## Features Implemented
+
+1. **Combined Scoring Formula**
+   - Similarity weight: 50% (this.similarityWeight = 0.5)
+   - Success rate weight: 30% (this.successWeight = 0.3)
+   - Recency weight: 20% (this.recencyWeight = 0.2)
+   - Formula: combinedScore = similarity * 0.5 + successRate * 0.3 + recency * 0.2
+
+2. **Recency Calculation**
+   - Exponential decay: recency = 0.5^(ageHours / 24)
+   - Half-life: 24 hours
+   - Recent strategies score higher than old ones
+
+3. **Success Rate Integration**
+   - Uses success_rate property from stored strategies
+   - Defaults to 0 if missing
+   - Range: 0.0 to 1.0
+
+4. **Sorting**
+   - Results sorted by combinedScore (descending)
+   - Highest scoring strategies returned first
+
+## Code Location
+
+File: `src/learning/strategy-memory.js`
+Lines: 148-157 (scoring calculation)
+Line: 177 (sorting by combinedScore)
+
+## Test Coverage
+
+All scoring tests passing (part of 73 strategy-memory tests):
+- ✓ should weight similarity at 50%, success_rate at 30%, recency at 20%
+- ✓ should penalize old strategies via recency decay
+- ✓ should sort results by combined score (descending)
+- ✓ should include metadata when includeMetadata is true
+
+## Verification
+
+```bash
+npm test -- tests/unit/learning/strategy-memory.test.js --no-cache
+# Result: 73 passed (includes scoring tests)
+```
+
+## Example Usage
+
+```javascript
+const sm = new StrategyMemory(knowledgeGraph);
+
+// Store strategies with different success rates and timestamps
+sm.storeStrategy('s1', 'collect wood', ['dig'], 'success', 0.9);
+sm.storeStrategy('s2', 'mine stone', ['dig'], 'partial', 0.5);
+
+// Retrieve with combined scoring
+const results = sm.retrieveSimilarStrategies('gather wood', 0.75);
+// Results sorted by: similarity (50%) + success_rate (30%) + recency (20%)
+```
+
+## Configurable Weights
+
+Weights can be customized via constructor options:
+
+```javascript
+const sm = new StrategyMemory(knowledgeGraph, {
+  similarityWeight: 0.6,  // Increase similarity importance
+  successWeight: 0.3,
+  recencyWeight: 0.1      // Decrease recency importance
+});
+```
+
+## Next Steps
+
+Task 39 complete. Ready for Task 40 (Strategy storage).

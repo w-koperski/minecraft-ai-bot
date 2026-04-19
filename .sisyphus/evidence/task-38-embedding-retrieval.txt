@@ -1,0 +1,79 @@
+TASK 38: Embedding-based Retrieval - BUG FIX VERIFIED
+======================================================
+
+Date: 2026-04-19
+Status: ✓ BUG FIXED & VERIFIED
+
+## Bug Description
+
+`retrieveSimilarStrategies()` returned 0 results even for exact matches.
+Root cause: Query embeddings used a different vocabulary than stored embeddings,
+causing low similarity scores (0.707 for exact match, below 0.75 threshold).
+
+Example: Storing "collect oak wood" then querying "collect oak wood" returned
+similarity 0.707 because query embedding [0.577, 0.577, 0.577, 0, 0, 0]
+had different dimensions than stored embedding [0.408, 0.408, 0.408, 0.408, 0.408, 0.408].
+
+## Fix Applied
+
+Removed `_embeddingCache` entirely. Changed to store `embedding_text` (raw string)
+in KnowledgeGraph instead of pre-computed `embedding` arrays.
+
+`retrieveSimilarStrategies()` now:
+1. Calls `_rebuildVocabulary()` to rebuild vocab from all stored strategies
+2. Generates query embedding using current vocabulary
+3. Re-embeds each stored strategy from its `embedding_text` at query time
+This ensures query and stored embeddings always use identical vocabulary and IDF.
+
+## QA Scenario 1: Store/Retrieve Similar Strategies
+
+Store 3 strategies (wood, stone, food), query "gather oak logs in forest" at threshold 0.75:
+- Results: 1 (wood-1)
+- Similarity: 0.7945
+- Combined score: 0.8673
+- Top result is wood-1: PASS
+- Results sorted by combinedScore desc: PASS
+- At least 1 result: PASS
+
+Exact match test: query "collect oak wood" vs stored "collect oak wood":
+- Similarity: 1.0000 (was 0.707 before fix)
+- Returns result above 0.75 threshold: PASS
+
+## QA Scenario 2: Threshold Filtering
+
+Store "collect wood from trees", query "mine diamonds deep underground" at 0.75:
+- Results: 0
+- Dissimilar query correctly filtered: PASS
+
+Query "gather wood from trees" at 0.5:
+- Results: 1
+- Similarity: 0.7715
+- Similar query passes lower threshold: PASS
+
+## Unit Test Results
+
+All 56 strategy-memory tests pass:
+- Constructor: 5/5
+- storeStrategy: 9/9
+- retrieveSimilarStrategies: 13/13
+- generateEmbedding: 6/6
+- cosineSimilarity: 8/8
+- Vocabulary Management: 9/9
+- IDF Computation: 2/2
+- Combined Score: 2/2
+- Utility Methods: 6/6
+
+Full suite: 1176 passed, 6 skipped, 0 failed
+
+## Files Modified
+
+- src/learning/strategy-memory.js - Complete rewrite removing _embeddingCache
+- tests/unit/learning/strategy-memory.test.js - Updated for embedding_text pattern
+
+## Constraints Satisfied
+
+- No external embedding APIs (local TF-IDF only)
+- No online learning or gradient computation
+- No modifications to KnowledgeGraph class
+- Default threshold remains 0.75
+- No new dependencies added

@@ -1,0 +1,44 @@
+TASK 38: Threshold Filtering Evidence
+======================================
+
+Date: 2026-04-19
+Status: ✓ VERIFIED
+
+## Scenario
+
+Store strategy: context="collect wood from trees", actions=["chop","wood"], outcome="got wood", success_rate=0.8
+
+### Test 1: Dissimilar query at default threshold (0.75)
+
+Query: "mine diamonds deep underground"
+Threshold: 0.75
+Expected: 0 results
+Actual: 0 results
+Result: PASS
+
+Reason: "mine diamonds deep underground" shares no significant terms with
+"collect wood from trees chop wood got wood", so TF-IDF cosine similarity
+falls well below 0.75.
+
+### Test 2: Similar query at lower threshold (0.5)
+
+Query: "gather wood from trees"
+Threshold: 0.5
+Expected: >= 1 result
+Actual: 1 result
+Similarity: 0.7715
+Result: PASS
+
+Reason: "gather wood from trees" shares "wood" and "trees" with stored
+strategy, producing similarity 0.7715 > 0.5 threshold.
+
+## Core Bug Verification
+
+The original bug was that identical text queries returned similarity 0.707
+(below 0.75 threshold) due to vocabulary mismatch between store-time and
+query-time embeddings. After fix:
+
+- Exact match "collect oak wood" vs "collect oak wood": similarity = 1.0000
+- This proves the vocabulary consistency fix works correctly
+- Pre-fix: same query would return 0.707 (different vocab dimensions)
+- Post-fix: same query returns 1.0000 (identical vocab/IDF at query time)

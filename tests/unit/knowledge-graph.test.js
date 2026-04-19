@@ -87,6 +87,80 @@ describe('KnowledgeGraph', () => {
     });
   });
 
+  describe('strategy memory', () => {
+    const fs = require('fs').promises;
+    const path = require('path');
+
+    test('should add and get strategy memory', () => {
+      const result = kg.addStrategy('strat_1', {
+        context: 'low health, no food',
+        actions: ['find_food', 'eat'],
+        outcome: 'success',
+        success_rate: 0.85,
+        timestamp: 1712345678901
+      });
+
+      expect(result).toBe(true);
+
+      const strat = kg.getStrategy('strat_1');
+      expect(strat).not.toBeNull();
+      expect(strat.type).toBe('strategy_memory');
+      expect(strat.properties.strategy_id).toBe('strat_1');
+      expect(strat.properties.context).toBe('low health, no food');
+      expect(strat.properties.actions).toEqual(['find_food', 'eat']);
+      expect(strat.properties.outcome).toBe('success');
+      expect(strat.properties.success_rate).toBe(0.85);
+      expect(strat.properties.timestamp).toBe(1712345678901);
+      expect(strat.properties.embedding).toBeNull();
+    });
+
+    test('should update strategy success rate', () => {
+      kg.addStrategy('strat_2', {
+        context: 'test',
+        actions: [],
+        outcome: 'success',
+        success_rate: 0.5
+      });
+
+      const updated = kg.updateStrategySuccessRate('strat_2', 0.75);
+      expect(updated).toBe(true);
+      expect(kg.getStrategy('strat_2').properties.success_rate).toBe(0.75);
+    });
+
+    test('should return null for non-strategy entity', () => {
+      kg.addEntity('player1', 'player');
+      expect(kg.getStrategy('player1')).toBeNull();
+    });
+
+    test('should persist strategy memory through save/load', async () => {
+      const filePath = path.join(process.cwd(), 'state', 'test-knowledge-graph.json');
+
+      try {
+        kg.addStrategy('strat_3', {
+          context: 'explore cave',
+          actions: ['equip_torch'],
+          outcome: 'success',
+          success_rate: 1,
+          timestamp: 1712345678902
+        });
+
+        const saved = await kg.save(filePath);
+        expect(saved).toBe(true);
+
+        const loadedKg = new KnowledgeGraph();
+        const loaded = await loadedKg.load(filePath);
+        expect(loaded).toBe(true);
+
+        const strat = loadedKg.getStrategy('strat_3');
+        expect(strat).not.toBeNull();
+        expect(strat.properties.context).toBe('explore cave');
+        expect(strat.properties.actions).toEqual(['equip_torch']);
+      } finally {
+        await fs.unlink(filePath).catch(() => {});
+      }
+    });
+  });
+
   describe('Temporal Validity - Entities', () => {
     test('should set validFrom to current time by default', () => {
       const before = Date.now();

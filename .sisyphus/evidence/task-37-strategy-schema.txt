@@ -1,0 +1,18 @@
+Task 37 Evidence - Strategy Memory Schema
+
+Schema fields:
+- strategy_id
+- context
+- actions
+- outcome
+- success_rate
+- timestamp
+- embedding
+
+CRUD verification:
+- addStrategy(): adds strategy_memory nodes
+- getStrategy(): returns strategy_memory entries by id
+- updateStrategySuccessRate(): updates success_rate in-place
+
+Persistence verification:
+- strategy_memory nodes serialize through save()/load() with existing KnowledgeGraph persistence

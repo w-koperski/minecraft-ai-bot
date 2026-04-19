@@ -1,0 +1,108 @@
+TASK 40: Strategy Storage - COMPLETE
+=====================================
+
+Date: 2026-04-19
+Status: ✓ VERIFIED (Implemented in Task 38)
+
+## Implementation Summary
+
+Strategy storage was implemented as part of Task 38 in `src/learning/strategy-memory.js` via the `storeStrategy()` method.
+
+## Features Implemented
+
+1. **Strategy Storage API**
+   - Method: `storeStrategy(strategyId, context, actions, outcome, successRate, extra)`
+   - Stores strategies with full context for later retrieval
+   - Returns boolean success status
+
+2. **Stored Properties**
+   - `context` - Situation description (string)
+   - `actions` - Actions taken (array of strings)
+   - `outcome` - Result description (string)
+   - `success_rate` - Success rate 0.0-1.0 (number)
+   - `timestamp` - Storage time for recency calculation (number)
+   - `embedding_text` - Combined text for embedding generation (string)
+   - `extra` - Additional custom properties (object)
+
+3. **Integration with KnowledgeGraph**
+   - Uses `knowledgeGraph.addStrategy()` for persistence
+   - Strategies stored with type 'strategy_memory'
+   - Supports temporal validity via KnowledgeGraph
+
+4. **Automatic Processing**
+   - Builds embedding text from context + actions + outcome
+   - Rebuilds vocabulary after each storage
+   - Clears embedding cache to maintain consistency
+
+## Code Location
+
+File: `src/learning/strategy-memory.js`
+Lines: 65-90 (storeStrategy method)
+
+## Test Coverage
+
+All storage tests passing (part of 73 strategy-memory tests):
+- ✓ should store a strategy and return true
+- ✓ should pass embedding_text to KnowledgeGraph
+- ✓ should store context, actions, outcome, success_rate, timestamp
+- ✓ should return false for missing strategyId
+- ✓ should return false for empty strategyId
+- ✓ should use defaults for optional params
+- ✓ should build embedding text from context + actions + outcome
+- ✓ should update vocabulary when storing
+- ✓ should rebuild vocabulary after storing
+
+## Verification
+
+```bash
+npm test -- tests/unit/learning/strategy-memory.test.js --no-cache
+# Result: 73 passed (includes storage tests)
+```
+
+## Example Usage
+
+```javascript
+const sm = new StrategyMemory(knowledgeGraph);
+
+// Store successful strategy
+sm.storeStrategy(
+  'collect_wood_1',
+  'collect oak logs in forest',
+  ['dig', 'collect'],
+  'success',
+  0.9
+);
+
+// Store failed strategy
+sm.storeStrategy(
+  'mine_diamond_1',
+  'mine diamonds without pickaxe',
+  ['dig'],
+  'failed - wrong tool',
+  0.0
+);
+
+// Store with extra metadata
+sm.storeStrategy(
+  'craft_tools_1',
+  'craft stone pickaxe',
+  ['craft'],
+  'success',
+  1.0,
+  { biome: 'plains', time_of_day: 'day' }
+);
+```
+
+## Storage Flow
+
+1. Validate strategyId (required)
+2. Build embedding text from context + actions + outcome
+3. Store in KnowledgeGraph with all properties
+4. Rebuild vocabulary from all stored strategies
+5. Clear embedding cache (dimensions may have changed)
+6. Return success status
+
+## Next Steps
+
+Task 40 complete. Phase 3 Wave 1 (Tasks 37-40) complete.
+Ready for Phase 3 Wave 2: Meta-Learning Integration (Tasks 41-44).

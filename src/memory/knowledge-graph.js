@@ -672,6 +672,60 @@ class KnowledgeGraph {
     return this.addEntity(id, 'semantic_memory', properties);
   }
 
+  /**
+   * Add a strategy memory (decision context, actions, outcome)
+   * @param {string} strategyId - Unique strategy identifier
+   * @param {object} data - Strategy memory data
+   * @returns {boolean} - Success status
+   */
+  addStrategy(strategyId, data = {}) {
+    if (!strategyId) {
+      logger.warn('addStrategy requires strategyId');
+      return false;
+    }
+
+    const timestamp = data.timestamp || Date.now();
+    const properties = {
+      strategy_id: strategyId,
+      context: data.context || data.situation || '',
+      actions: Array.isArray(data.actions) ? [...data.actions] : [],
+      outcome: data.outcome || null,
+      success_rate: Math.max(0, Math.min(1, typeof data.success_rate === 'number' ? data.success_rate : 0)),
+      timestamp,
+      embedding: data.embedding || null
+    };
+
+    return this.addEntity(strategyId, 'strategy_memory', properties, { valid_from: new Date(timestamp).toISOString() });
+  }
+
+  /**
+   * Get a strategy memory by id
+   * @param {string} strategyId - Strategy identifier
+   * @param {object} options - Query options { timestamp }
+   * @returns {object|null} - Strategy memory or null
+   */
+  getStrategy(strategyId, options = {}) {
+    const entity = this.getEntity(strategyId, options);
+    return entity && entity.type === 'strategy_memory' ? entity : null;
+  }
+
+  /**
+   * Update a strategy memory's success rate
+   * @param {string} strategyId - Strategy identifier
+   * @param {number} successRate - Success rate (0.0-1.0)
+   * @returns {boolean} - Success status
+   */
+  updateStrategySuccessRate(strategyId, successRate) {
+    if (!this.graph.hasNode(strategyId)) {
+      logger.warn('updateStrategySuccessRate: node not found', { strategyId });
+      return false;
+    }
+
+    return this.updateEntity(strategyId, {
+      success_rate: Math.max(0, Math.min(1, successRate))
+    });
+  }
+
   // ============================================
   // Memory Query Methods
   // ============================================
