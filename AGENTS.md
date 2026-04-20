@@ -10,7 +10,7 @@
 ```bash
 # Setup
 npm install && cp .env.example .env
-# Edit .env: MINECRAFT_HOST, MINECRAFT_PORT, OMNIROUTE_URL, OMNIROUTE_API_KEY
+# Edit .env: MINECRAFT_HOST, MINECRAFT_PORT, LLM_API_URL, LLM_API_KEY
 
 # Run
 node src/index.js              # Full 3-layer system + companion features
@@ -40,18 +40,18 @@ echo '[]' > state/plan.json    # Clear plan if stuck
 
 **3-layer AI system:**
 ```
-Commander (Claude Sonnet 4.5, ~1s) → High-level goals
-    ↓
-Strategy (Qwen 2.5 7B, 410ms) → Multi-step planning
-    ↓
-Pilot (Llama 3.2 1B, 210ms) → Fast reactions
+Commander (Reasoning model, ~1s) → High-level goals
+↓
+Strategy (Planning model, ~400ms) → Multi-step planning
+↓
+Pilot (Fast model, ~200ms) → Fast reactions
     ↓
 Mineflayer → Minecraft actions
 ```
 
 **Rate limits:**
-- Omniroute API: 560 RPM hard limit
-- Bot uses 448 RPM (80% buffer) via `bottleneck` library
+- API Rate Limits: Check your provider's limits
+- Bot uses rate limiting via `bottleneck` library (configure based on your provider)
 - Shared limiter across all 3 layers
 
 **Adaptive Pilot loop:**
@@ -215,8 +215,8 @@ src/
 │   └── benchmark-suite.js   # 5-metric performance tracking
 ├── utils/
 │   ├── state-manager.js     # File locking (lockfile, 5s timeout)
-│   ├── omniroute.js         # LLM API client
-│   ├── rate-limiter.js      # Bottleneck wrapper
+│ ├── api-client.js # LLM API client
+│ ├── rate-limiter.js # Bottleneck wrapper
 │   └── logger.js            # Winston logger
 ├── chat/
 │   └── chat-handler.js      # In-game commands
@@ -258,8 +258,8 @@ src/
 │   └── knowledge-graph.js # Memory with temporal validity
 ├── utils/
 │   ├── state-manager.js  # File locking (lockfile, 5s timeout)
-│   ├── omniroute.js      # LLM API client
-│   ├── rate-limiter.js   # Bottleneck wrapper
+│ ├── api-client.js # LLM API client
+│ ├── rate-limiter.js # Bottleneck wrapper
 │   └── logger.js         # Winston logger
 ├── memory/
 │   └── memory-store.js   # SQLite conversation storage
@@ -345,8 +345,8 @@ tests/
 - Target latency: <1s (achieved: 1ms)
 
 ### Rate Limiting
-- Omniroute API: 560 RPM hard limit
-- Bot uses 448 RPM (80% buffer) via `bottleneck` library
+- API Rate Limits: Check your provider's limits
+- Bot uses rate limiting via `bottleneck` library (configure based on your provider)
 - Shared limiter across all 3 layers to prevent 429 errors
 - New features add ~1.033 RPM (within budget)
 
@@ -383,13 +383,13 @@ tests/
 
 **Required:**
 - `MINECRAFT_HOST` / `MINECRAFT_PORT` - Server connection
-- `OMNIROUTE_URL` - API endpoint (default: http://127.0.0.1:20128/v1/chat/completions)
-- `OMNIROUTE_API_KEY` - API authentication
+- `LLM_API_URL` - API endpoint (default: http://127.0.0.1:20128/v1/chat/completions)
+- `LLM_API_KEY` - API authentication
 
 **Model selection:**
-- `PILOT_MODEL=nvidia/meta/llama-3.2-1b-instruct` (210ms)
-- `STRATEGY_MODEL=nvidia/qwen/qwen2.5-7b-instruct` (410ms)
-- `COMMANDER_MODEL=claude-sonnet-4.5` (~1s)
+- `PILOT_MODEL` - Fast model (~200ms, 1-3B parameters recommended)
+- `STRATEGY_MODEL` - Planning model (~400ms, 7-14B parameters recommended)
+- `COMMANDER_MODEL` - Reasoning model (~1s, large model recommended)
 
 **Loop intervals (milliseconds):**
 - `PILOT_INTERVAL=500` (adaptive: 200-2000ms based on threats)
@@ -423,7 +423,7 @@ See `.env.example` for full configuration template.
 - `mineflayer` - Minecraft bot framework
 - `mineflayer-pathfinder` - Navigation
 - `mineflayer-collectblock` - Resource gathering
-- `axios` - HTTP client (Omniroute API)
+- `axios` - HTTP client (LLM API)
 - `bottleneck` - Rate limiting
 - `winston` - Logging
 - `lockfile` - File locking
@@ -449,8 +449,8 @@ See `.env.example` for full configuration template.
 - Ensure server allows offline-mode or bot has valid credentials
 
 ### LLM not responding
-- Test Omniroute: `curl http://127.0.0.1:20128/v1/models`
-- Check `OMNIROUTE_API_KEY` in `.env`
+- Test API endpoint: `curl $LLM_API_URL/v1/models`
+- Check `LLM_API_KEY` in `.env`
 - Verify rate limiter isn't blocking (check logs)
 
 ### Bot stuck in loop
@@ -459,7 +459,7 @@ See `.env.example` for full configuration template.
 - Check Action Awareness is verifying outcomes (see logs)
 
 ### Rate limit errors (429)
-- Default limit: 448 req/min (80% of 560 RPM)
+- API Rate Limits: Check your provider's limits
 - Increase loop intervals in `.env` if hitting limit
 - Check all 3 layers aren't running too fast
 
@@ -510,9 +510,9 @@ Voice adds 3-4s latency (STT + processing + TTS), suitable for strategy commands
 
 | Layer | Model | Latency | Frequency | Purpose |
 |-------|-------|---------|-----------|---------|
-| Pilot | Llama 3.2 1B | 210ms | 2-5 Hz | Fast reactions |
-| Strategy | Qwen 2.5 7B | 410ms | 0.2-0.5 Hz | Planning |
-| Commander | Claude Sonnet 4.5 | ~1s | 0.03-0.1 Hz | Monitoring |
+| Pilot | Fast model (~200ms) | 210ms | 2-5 Hz | Fast reactions |
+| Strategy | Planning model (~400ms) | 410ms | 0.2-0.5 Hz | Planning |
+| Commander | Reasoning model (~1s) | ~1s | 0.03-0.1 Hz | Monitoring |
 
 **Adaptive Pilot loop:**
 - Danger: 200ms (5 Hz) - hostile mobs, lava, low health
@@ -537,8 +537,7 @@ Bot is complete when:
 
 ## External Resources
 
-**Mineflayer docs:** https://github.com/PrismarineJS/mineflayer  
-**Omniroute API:** https://omniroute.koperski.tech  
+**Mineflayer docs:** https://github.com/PrismarineJS/mineflayer
 **PIANO paper:** Project Sid (Altera.AI) - concurrent modules with cognitive controller
 
 ---

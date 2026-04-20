@@ -13,16 +13,16 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Layer 3: Commander (Claude Sonnet 4.5)                │
-│ - Monitor bot state every 10-30s                      │
+│ Layer 3: Commander (Reasoning model, ~1s) │
+│ - Monitor bot state every 10-30s │
 │ - Issue high-level commands ("build house", "find diamonds") │
-│ - Strategy corrections when stuck                     │
-│ - Progress reporting to user                          │
-│ - Autonomous goal generation (when enabled)            │
+│ - Strategy corrections when stuck │
+│ - Progress reporting to user │
+│ - Autonomous goal generation (when enabled) │
 └────────────────┬────────────────────────────────────────┘
                  │ text commands
 ┌────────────────▼────────────────────────────────────────┐
-│ Layer 2: Strategy (Qwen 2.5 7B, 410ms)                  │
+│ Layer 2: Strategy (Planning model, 410ms) │
 │ - Translate commands into action sequences             │
 │ - Pathfinding and navigation                           │
 │ - Inventory management                                   │
@@ -31,7 +31,7 @@
 └────────────────┬────────────────────────────────────────┘
                  │ action sequences
 ┌────────────────▼────────────────────────────────────────┐
-│ Layer 1: Pilot (Llama 3.2 1B, 210ms)                  │
+│ Layer 1: Pilot (Fast model, 210ms) │
 │ - Execute actions (move, dig, place, attack)            │
 │ - Avoid hazards (lava, mobs, falls)                     │
 │ - React to environment changes                         │
@@ -74,70 +74,51 @@
      └────────────┴────────────┴────────────┴────────────┘
                               │
                     ┌─────────▼──────────┐
-                    │   Item Tracker      │
-                    │ Milestone detection │
-                    │ Items/hour rate     │
-                    └─────────────────────┘
-```
-┌─────────────────────────────────────────────────────────┐
-│ Layer 3: Commander (Claude Sonnet 4.5)                  │
-│ - Monitor bot state every 10-30s                         │
-│ - Issue high-level commands ("build house", "find diamonds") │
-│ - Strategy corrections when stuck                        │
-│ - Progress reporting to user                             │
-└────────────────┬────────────────────────────────────────┘
-                 │ text commands
-┌────────────────▼────────────────────────────────────────┐
-│ Layer 2: Strategy (Qwen 2.5 7B, 410ms)                 │
-│ - Translate commands into action sequences               │
-│ - Pathfinding and navigation                             │
-│ - Inventory management                                   │
-│ - Crafting recipes                                       │
-└────────────────┬────────────────────────────────────────┘
-                 │ action sequences
-┌────────────────▼────────────────────────────────────────┐
-│ Layer 1: Pilot (Llama 3.2 1B, 210ms)                   │
-│ - Execute actions (move, dig, place, attack)            │
-│ - Avoid hazards (lava, mobs, falls)                     │
-│ - React to environment changes                           │
-└────────────────┬────────────────────────────────────────┘
-                 │ Mineflayer API
-┌────────────────▼────────────────────────────────────────┐
-│ Minecraft Bot (Node.js + Mineflayer)                    │
-│ - Connect to Minecraft server                            │
-│ - Observe world (blocks, mobs, inventory)               │
-│ - Execute commands (dig, place, attack, craft)          │
-└──────────────────────────────────────────────────────────┘
+│ Item Tracker │
+│ Milestone detection │
+│ Items/hour rate │
+└─────────────────────┘
 ```
 
-## 🧠 Model Selection (via Omniroute)
+## 🧠 Model Selection Guide
 
-All models tested on headless server with GPU:
+The bot architecture requires three types of models with different characteristics. Choose models that meet these requirements for your use case.
 
-### Layer 1: Pilot (fast reactions)
-**Selected:** `nvidia/meta/llama-3.2-1b-instruct` (210ms)
-- Fastest response time
-- Good enough for simple action selection
+| Task Type | Required Characteristics | Example Models | Latency Target |
+|-----------|-------------------------|----------------|----------------|
+| Pilot (Fast Reactions) | Low latency (<300ms), small size (1-3B params), efficient single-token inference, reactive output format | llama-3.2-1b, phi-3-mini, qwen-2-1.5b | <300ms |
+| Strategy (Planning) | Medium latency (<500ms), medium size (7-14B params), multi-step reasoning, structured output generation | qwen-2.5-7b, mistral-7b, llama-3.1-8b | <500ms |
+| Commander (Monitoring) | Higher latency acceptable (~1s), large model, strong instruction following, long-context understanding, goal decomposition | claude-sonnet, gpt-4, gemini-pro | ~1000ms |
+
+### Layer Detail
+
+**Pilot (Fast Reactions):** Executes single actions — move, dig, attack, avoid hazards. Runs at 2-5 Hz, so inference must complete within each tick window. Small parameter count (1-3B) enables the sub-300ms response time needed for danger avoidance and real-time gameplay.
+
+**Strategy (Planning):** Plans 3-5 step sequences including pathfinding, crafting, and inventory management. Runs at 0.2-0.5 Hz, allowing more time per inference. Medium-sized models (7-14B) balance reasoning capability with the sub-500ms latency requirement.
+
+**Commander (Monitoring):** Issues high-level goals, monitors progress, and corrects course when the bot is stuck. Runs at 0.03-0.1 Hz, so ~1s latency is acceptable. Larger models with strong instruction following and long-context understanding are well-suited for this task.
+
+**Note:** This architecture works with any models meeting the latency and capability requirements above. Examples shown are illustrative. Choose any models meeting the characteristics for your specific deployment and use case. Model availability, performance, and pricing vary over time — verify current specifications before selecting.
+
+### Model Selection Criteria
+
+Models were selected based on these criteria:
+
+#### Layer 1: Pilot (fast reactions)
+- **Latency target:** <300ms (achieved: 210ms)
+- Fastest response time within budget
+- Sufficient for simple action selection
 - Loop frequency: 200-500ms (2-5 Hz)
 
-**Alternatives tested:**
-- `nvidia/google/gemma-2-9b-it` (310ms)
-- `nvidia/meta/llama-3.2-3b-instruct` (311ms)
-
-### Layer 2: Strategy (planning)
-**Selected:** `nvidia/qwen/qwen2.5-7b-instruct` (410ms)
+#### Layer 2: Strategy (planning)
+- **Latency target:** <500ms (achieved: 410ms)
 - Good balance of speed and reasoning
 - Handles multi-step planning
 - Loop frequency: 2-5s (0.2-0.5 Hz)
 
-**Alternatives tested:**
-- `nvidia/mistralai/mistral-7b-instruct-v0.3` (410ms)
-- `nvidia/meta/llama-3.3-70b-instruct` (510ms)
-- `nvidia/qwen/qwen3.5-122b-a10b` (510ms)
-
-### Layer 3: Commander (monitoring)
-**Selected:** `claude-sonnet-4.5` (via Omniroute)
-- Best reasoning for complex goals
+#### Layer 3: Commander (monitoring)
+- **Latency target:** ~1s (achieved: ~1s)
+- Strong reasoning for complex goals
 - Handles user interaction
 - Loop frequency: 10-30s (0.03-0.1 Hz)
 
@@ -166,18 +147,18 @@ All models tested on headless server with GPU:
 
 ### 3. Pilot (`pilot.js`)
 - Fast reaction loop (200-500ms)
-- Calls Llama 3.2 1B via Omniroute
+- Calls fast model via OpenAI-compatible API
 - Executes single actions
 
 ### 4. Strategy (`strategy.js`)
 - Planning loop (2-5s)
-- Calls Qwen 2.5 7B via Omniroute
+- Calls planning model via OpenAI-compatible API
 - Generates action sequences
 
 ### 5. Commander (`commander.js`)
 - OpenClaw subagent (mode="session")
 - Cron heartbeat (10s)
-- Calls Claude Sonnet 4.5
+- Calls reasoning model
 - Reads/writes command files
 
 ### 6. Voice Interface (`voice-input.sh`, `voice-output.sh`)
@@ -290,7 +271,7 @@ minecraft-ai-bot/
 │   ├── social/
 │   │   └── social-awareness.js  # Player BDI model
 │   ├── utils/
-│   │   ├── omniroute.js         # LLM API client
+│ │ ├── api-client.js # OpenAI-compatible API client
 │   │   ├── state-manager.js     # File locking
 │   │   ├── rate-limiter.js      # Bottleneck wrapper
 │   │   └── logger.js            # Winston logging
@@ -317,38 +298,7 @@ minecraft-ai-bot/
 └── tests/
     ├── unit/                    # Unit tests
     ├── integration/             # Layer communication
-    └── e2e/                     # End-to-end
-```
-minecraft-ai-bot/
-├── ARCHITECTURE.md          # This file
-├── IMPLEMENTATION_PLAN.md   # Step-by-step implementation guide
-├── README.md                # Project overview
-├── package.json             # Node.js dependencies
-├── src/
-│   ├── bot.js              # Main bot entry point
-│   ├── vision.js           # World state extraction
-│   ├── pilot.js            # Layer 1: Fast reactions
-│   ├── strategy.js         # Layer 2: Planning
-│   ├── commander.js        # Layer 3: High-level goals
-│   ├── omniroute.js        # Omniroute API client
-│   └── utils.js            # Shared utilities
-├── prompts/
-│   ├── pilot.txt           # Pilot prompt template
-│   ├── strategy.txt        # Strategy prompt template
-│   └── commander.txt       # Commander prompt template
-├── voice/
-│   ├── voice-input.sh      # Whisper STT wrapper
-│   └── voice-output.sh     # sherpa-onnx-tts TTS wrapper
-├── state/
-│   ├── state.json          # Current bot state
-│   ├── commands.json       # Commander → Strategy
-│   ├── plan.json           # Strategy → Pilot
-│   ├── voice-command.txt   # Voice input
-│   └── voice-response.txt  # Voice output
-└── tests/
-    ├── test-mineflayer.js  # Basic Mineflayer test
-    ├── test-omniroute.js   # Omniroute API test
-    └── test-vision.js      # Vision system test
+└── e2e/ # End-to-end
 ```
 
 ## 🚀 Implementation Phases
@@ -360,11 +310,11 @@ minecraft-ai-bot/
 
 ### Phase 2: Layer 1 - Pilot with LLM (1-2h)
 - Add vision.js
-- Add pilot.js with Llama 3.2 1B
+- Add pilot.js with fast model (1-3B params)
 - Bot reacts to environment via LLM
 
 ### Phase 3: Layer 2 - Strategy (2-3h)
-- Add strategy.js with Qwen 2.5 7B
+- Add strategy.js with planning model (7-14B params)
 - Multi-step planning
 - Pilot executes strategy plan
 
@@ -385,7 +335,7 @@ minecraft-ai-bot/
 ### Server
 - Headless Linux server with GPU
 - Node.js v18+
-- Omniroute API access (local: http://127.0.0.1:20128)
+- OpenAI-compatible API access (local or remote)
 - OpenClaw installed
 
 ### Minecraft
@@ -399,11 +349,11 @@ minecraft-ai-bot/
 
 ## 📊 Performance Targets
 
-| Layer | Model | Latency | Frequency | Purpose |
-|-------|-------|---------|-----------|---------|
-| Pilot | Llama 3.2 1B | 210ms | 2-5 Hz | Fast reactions |
-| Strategy | Qwen 2.5 7B | 410ms | 0.2-0.5 Hz | Planning |
-| Commander | Claude Sonnet 4.5 | ~1s | 0.03-0.1 Hz | Monitoring |
+| Layer | Model Type | Latency | Frequency | Purpose |
+|-------|-----------|---------|-----------|---------|
+| Pilot | Fast model (1-3B params) | 210ms | 2-5 Hz | Fast reactions |
+| Strategy | Planning model (7-14B params) | 410ms | 0.2-0.5 Hz | Planning |
+| Commander | Reasoning model (large) | ~1s | 0.03-0.1 Hz | Monitoring |
 | Voice (STT) | Whisper | 2-3s | On-demand | Speech input |
 | Voice (TTS) | sherpa-onnx | 1s | On-demand | Speech output |
 
@@ -428,7 +378,7 @@ minecraft-ai-bot/
 ## 🔐 Security Notes
 
 - Bot credentials stored in `.env` (not committed)
-- Omniroute API key in environment variable
+- API key in environment variable (LLM_API_KEY)
 - Voice commands sanitized before execution
 - Rate limiting on LLM calls to prevent abuse
 

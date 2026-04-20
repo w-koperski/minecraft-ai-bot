@@ -8,7 +8,7 @@
 - **Voice commands** - Control bot with natural language (optional)
 - **3-layer AI** - Fast reactions + strategic planning + high-level goals
 - **Headless compatible** - Runs on servers without display
-- **Free models** - Uses Omnirroute for zero-cost inference
+- **Flexible AI** - Works with any OpenAI-compatible API provider
 
 ## 🎭 Companion Features
 
@@ -87,7 +87,7 @@ Mineflayer → Minecraft actions
 ### Prerequisites
 
 - Node.js v18+
-- Omniroute API running locally
+- OpenAI-compatible API endpoint
 - Minecraft Java Edition server
 
 ### Installation
@@ -110,8 +110,8 @@ cp .env.example .env
 MINECRAFT_HOST=localhost
 MINECRAFT_PORT=25565
 MINECRAFT_USERNAME=AIBot
-OMNIROUTE_URL=http://127.0.0.1:20128/v1/chat/completions
-OMNIROUTE_API_KEY=your-api-key-here
+API_URL=http://127.0.0.1:20128/v1/chat/completions
+API_KEY=your-api-key-here
 ```
 
 ### Run
@@ -236,7 +236,7 @@ minecraft-ai-bot/
 │   │   └── discord-voice.js # Discord voice integration
 │   ├── utils/
 │   │   ├── state-manager.js # File locking with lockfile
-│   │   ├── omniroute.js # LLM API client
+│ │ ├── api-client.js # OpenAI-compatible API client
 │   │   ├── rate-limiter.js # Bottleneck wrapper
 │   │   └── logger.js # Winston logger
 │   └── actions/
@@ -289,8 +289,8 @@ Edit files in `prompts/` to improve LLM behavior.
 - Verify `MINECRAFT_HOST` and `MINECRAFT_PORT` in `.env`
 
 ### LLM not responding
-- Verify Omniroute: `curl http://127.0.0.1:20128/v1/models`
-- Check `OMNIROUTE_API_KEY` in `.env`
+- Test your API endpoint: `curl http://127.0.0.1:20128/v1/models`
+- Check `API_KEY` in `.env`
 
 ### Bot stuck in loop
 - Clear plan: `echo '[]' > state/plan.json`
@@ -315,7 +315,7 @@ MIT
 ## 🙏 Acknowledgments
 
 - [Mineflayer](https://github.com/PrismarineJS/mineflayer) - Minecraft bot framework
-- [Omniroute](https://omniroute.koperski.tech) - Free LLM inference
+- Compatible with the [OpenAI API standard](https://platform.openai.com/docs/api-reference)
 - [OpenClaw](https://openclaw.ai) - AI orchestration
 
 ## 📧 Contact
