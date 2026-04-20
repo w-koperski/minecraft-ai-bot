@@ -8,3 +8,15 @@ state/*.txt
 .DS_Store
 src/dashboard/frontend/.next/
 src/dashboard/frontend/out/
+
+# Test artifacts and temporary files
+*.db
+test-*.js
+samples.json
+state/*.db
+coverage/
+test-results/
+
+# Planning and archive directories
+.sisyphus/
+docs/archive/

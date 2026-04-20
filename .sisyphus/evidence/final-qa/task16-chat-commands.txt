@@ -1,2 +1,0 @@
-Commands: collect, build, goto, status, stop, help
-VALID: PASS

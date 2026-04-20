@@ -1,2 +1,0 @@
-StateManager methods: addSchema, validate, getFilePath, withLock, read, write, delete
-VALID: FAIL

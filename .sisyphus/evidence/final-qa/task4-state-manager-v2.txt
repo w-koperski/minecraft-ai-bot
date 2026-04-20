@@ -1,4 +1,0 @@
-Methods: addSchema, validate, getFilePath, withLock, read, write, delete
-Has read/write: true
-Has withLock: true
-VALID: PASS

@@ -13,11 +13,11 @@
 
 **3-layer hierarchy:**
 ```
-Commander (Claude Sonnet 4.5, ~1s) → commands.json
+Commander (Reasoning model, ~1s) → commands.json
     ↓
-Strategy (Qwen 2.5 7B, 410ms) → plan.json
+Strategy (Planning model, 410ms) → plan.json
     ↓
-Pilot (Llama 3.2 1B, 210ms) → Mineflayer actions
+Pilot (Fast model, 210ms) → Mineflayer actions
 ```
 
 **Communication:** File-based via state-manager (state.json, commands.json, plan.json)
@@ -37,7 +37,7 @@ Pilot (Llama 3.2 1B, 210ms) → Mineflayer actions
 **LLM Integration:**
 - Each layer builds custom prompts with personality/relationship context
 - Prompts are inline in buildPrompt() methods (no separate prompts/ directory)
-- Rate limiting: 448 RPM shared across all 3 layers via omniroute client
+- Rate limiting: Configure based on your provider's limits, shared across all 3 layers
 
 **State Management:**
 - Commander writes goals to commands.json
@@ -62,7 +62,7 @@ Pilot (Llama 3.2 1B, 210ms) → Mineflayer actions
 ## Dependencies
 
 - `../utils/state-manager` - File-based state with locking
-- `../utils/omniroute` - LLM API client with rate limiting
+- `../utils/api-client` - LLM API client with rate limiting
 - `../utils/logger` - Winston logging
 - `../utils/vision-enhanced` - Game state extraction
 - `../../personality/personality-engine` - Trait system

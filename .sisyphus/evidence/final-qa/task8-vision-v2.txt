@@ -1,5 +1,0 @@
-State fields: timestamp, self, blocks, entities, chat, events
-Self fields: position, health, food, saturation, experience, game_mode, inventory, held_item, is_on_ground, is_in_water, is_in_lava
-Position: {"x":10,"y":64,"z":20}
-Health: 20
-VALID: PASS

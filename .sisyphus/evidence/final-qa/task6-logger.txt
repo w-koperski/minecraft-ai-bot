@@ -1,2 +1,0 @@
-Logger methods: info, error, warn, debug
-VALID: PASS

@@ -1,5 +1,0 @@
-=== Edge Case: Malformed Bot Object ===
-1. Empty bot returns error: NO
-2. Null bot returns error: YES
-3. Partial bot handled: YES
-EDGE CASE: PASS

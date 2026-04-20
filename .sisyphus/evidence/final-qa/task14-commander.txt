@@ -1,4 +1,0 @@
-Methods: start, stop, scheduleNextLoop, loop, gatherMemory, analyzeSituation, assessThreatLevel, assessPlanProgress, detectStuck, makeDecision, buildDecisionContext, buildPrompt, parseDecision, makeFallbackDecision, executeDecision, updateMonitoringState, recordDecision, issueEmergencyStop, calculateDistance, getStatus
-Has start/stop: true true
-Has monitor: false
-VALID: FAIL

@@ -10,7 +10,7 @@ tests/
 ├── integration/    # 1 test file - layer communication via state files
 ├── e2e/            # 4 test files - full bot lifecycle (requires server)
 ├── helpers/        # 6 files - test utilities (bot-factory, mock-api, e2e-setup)
-├── mocks/          # 1 file - test doubles (mock-omniroute)
+├── mocks/          # 1 file - test doubles (mock API client)
 └── fixtures/       # Sample data (conversations, personalities)
 ```
 

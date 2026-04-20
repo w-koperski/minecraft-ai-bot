@@ -11,15 +11,15 @@
 - Schemas: Validates state structure before write
 
 **rate-limiter.js** - Bottleneck wrapper for API limits
-- Used by: omniroute client
-- Limit: 448 req/min (80% of 560 RPM hard limit)
+- Used by: LLM API client
+- Limit: Configure based on your provider's limits
 - Shared: Across Commander, Strategy, Pilot
 - Behavior: Stops on 429 errors to prevent API bans
 
-**omniroute.js** - LLM API client with retry logic
+**api-client.js** - LLM API client with retry logic
 - Used by: ALL layers
 - Features: Exponential backoff (3 attempts, 1-8s delays), metrics tracking, health checks
-- Models: Routes to Claude/Qwen/Llama based on layer
+- Models: Routes to appropriate models based on layer
 - Rate limiting: Integrated with rate-limiter
 
 **logger.js** - Winston logging system
@@ -41,8 +41,8 @@
 ## Supporting Utilities
 
 - `relationship-state.js` - SQLite relationship tracking (trust, familiarity)
-- `model-config.js` - Provider/model validation (OpenAI, Anthropic, Nvidia)
-- `openai-client.js` - Alternative to omniroute for OpenAI-compatible endpoints
+- `model-config.js` - Provider/model validation (OpenAI-compatible APIs)
+- `openai-client.js` - OpenAI-compatible API client
 - `schemas.js` - JSON schema definitions for state files
 - `errors.js` - Custom error types
 
@@ -58,10 +58,10 @@ const state = await manager.read('state');  // Locks, reads, validates
 
 **Rate-limited API calls:**
 ```javascript
-const OmnirouteClient = require('./omniroute');
-const client = new OmnirouteClient();
+const APIClient = require('./api-client');
+const client = new APIClient();
 const response = await client.pilot(prompt, { temperature: 0.3 });
-// Rate limiter automatically enforces 448 RPM
+// Rate limiter automatically enforces configured limits
 ```
 
 **Logging:**
@@ -79,11 +79,11 @@ logger.error('Error occurred', { error: err.message });
 - Update schemas when state format changes
 
 **rate-limiter:**
-- Adjust limits carefully (560 RPM hard limit)
+- Adjust limits based on your provider's limits
 - Changes affect all 3 layers simultaneously
 - Monitor for 429 errors after changes
 
-**omniroute:**
+**api-client:**
 - Test retry logic with actual API failures
 - Metrics tracking affects performance monitoring
 - Health checks run on startup
@@ -97,11 +97,11 @@ logger.error('Error occurred', { error: err.message });
 
 - `lockfile` - File locking (state-manager)
 - `bottleneck` - Rate limiting (rate-limiter)
-- `axios` - HTTP client (omniroute, openai-client)
+- `axios` - HTTP client (api-client, openai-client)
 - `winston` - Logging (logger)
 - `sqlite3` - Database (relationship-state)
 
 ## Testing
 
-- Unit tests: `tests/unit/state-manager.test.js`, `tests/unit/omniroute.test.js`, `tests/unit/rate-limiter.test.js`
+- Unit tests: `tests/unit/state-manager.test.js`, `tests/unit/api-client.test.js`, `tests/unit/rate-limiter.test.js`
 - Integration tests: Concurrent state access, rate limit enforcement

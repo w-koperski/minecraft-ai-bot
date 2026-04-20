@@ -1,8 +1,0 @@
-=== Layer Integration Test ===
-
-1. Vision extracts state: true
-2. Action Awareness instantiates: true
-3. Pilot instantiates: true
-4. Pilot threat detection: true
-
-INTEGRATION: PASS
