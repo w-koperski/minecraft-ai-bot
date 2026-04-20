@@ -24,7 +24,7 @@ tests/
 Unit tests verify individual components in isolation with mocks.
 
 - `state-manager.test.js` - File-based state management
-- `omniroute.test.js` - LLM API client
+- `api-client.test.js` - LLM API client
 - `commander.test.js` - Commander layer logic
 - `action-awareness.test.js` - PIANO verification
 - `rate-limiter.test.js` - Rate limiting
@@ -99,7 +99,7 @@ test('should parse collect command', async () => {
 - `tests/helpers/bot-factory.js` - Creates test bot instances
 - `tests/helpers/mock-api.js` - Mock API responses
 - `tests/helpers/mock-personality.js` - Mock personality traits
-- `tests/mocks/mock-omniroute.js` - Mock Omniroute client
+- `tests/mocks/mock-api-client.js` - Mock API client
 
 ## Test Fixtures
 
