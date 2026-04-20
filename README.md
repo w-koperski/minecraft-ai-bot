@@ -68,11 +68,11 @@ Five metrics tracked against Project Sid targets: action success rate (94%), ite
 ## 🏗️ Architecture
 
 ```
-Commander (Claude Sonnet 4.5) → High-level goals
+Commander (Reasoning model) → High-level goals
     ↓
-Strategy (Qwen 2.5 7B) → Multi-step planning
+Strategy (Planning model) → Multi-step planning
     ↓
-Pilot (Llama 3.2 1B) → Fast reactions
+Pilot (Fast model) → Fast reactions
     ↓
 Mineflayer → Minecraft actions
 ```
@@ -193,19 +193,19 @@ See [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) for complete Discord set
 ## 🧠 How It Works
 
 ### Layer 1: Pilot (Fast Reactions)
-- Model: Llama 3.2 1B (210ms)
+- Model: Fast model (1-3B params, 210ms)
 - Executes single actions: move, dig, attack
 - Avoids hazards: lava, mobs, falls
 - Runs at 2-5 Hz
 
 ### Layer 2: Strategy (Planning)
-- Model: Qwen 2.5 7B (410ms)
+- Model: Planning model (7-14B params, 410ms)
 - Plans 3-5 step sequences
 - Handles pathfinding, crafting, inventory
 - Runs at 0.2-0.5 Hz
 
 ### Layer 3: Commander (Monitoring)
-- Model: Claude Sonnet 4.5 (~1s)
+- Model: Reasoning model (large, ~1s)
 - Issues high-level goals
 - Monitors progress
 - Corrects when stuck
@@ -230,17 +230,50 @@ minecraft-ai-bot/
 │   │   └── social-awareness.js # Player BDI model
 │   ├── memory/
 │   │   ├── conversation-store.js # Persistent chat memory
-│   │   └── knowledge-graph.js # Memory with temporal validity
+│   │   ├── knowledge-graph.js # Memory with temporal validity
+│   │   └── memory-store.js # Memory persistence
 │   ├── voice/
-│   │   └── discord-voice.js # Discord voice integration
+│   │   ├── discord-voice.js # Discord voice integration
+│   │   └── voice-handler.js # Voice command processing
+│   ├── skills/
+│   │   ├── skill-registry.js # O(1) skill lookup
+│   │   ├── skill-executor.js # Retry logic with confidence filtering
+│   │   ├── primitives/ # 5 primitive skills
+│   │   │   ├── move.js
+│   │   │   ├── dig.js
+│   │   │   ├── place.js
+│   │   │   ├── craft.js
+│   │   │   └── collect.js
+│   │   └── composite/ # 5 composite skills
+│   │       ├── gather-wood.js
+│   │       ├── mine-stone.js
+│   │       ├── craft-tools.js
+│   │       ├── build-shelter.js
+│   │       └── hunt-food.js
+│   ├── safety/
+│   │   ├── danger-predictor.js # Spatial danger tracking
+│   │   └── safety-manager.js # Safety policy enforcement
+│   ├── goals/
+│   │   ├── goal-graph.js # Hierarchical goal relationships
+│   │   ├── goal-scorer.js # Multi-factor goal scoring
+│   │   └── goal-generator.js # Context-aware goal generation
+│   ├── learning/
+│   │   ├── reflection-module.js # 30-min performance analysis
+│   │   ├── learning-metrics.js # Performance tracking
+│   │   ├── strategy-memory.js # Strategy storage
+│   │   └── strategy-applicator.js # Strategy application
+│   ├── metrics/
+│   │   ├── item-tracker.js # Item acquisition tracking
+│   │   └── benchmark-suite.js # 5-metric performance tracking
 │   ├── utils/
 │   │   ├── state-manager.js # File locking with lockfile
-│ │ ├── api-client.js # OpenAI-compatible API client
+│   │   ├── api-client.js # OpenAI-compatible API client
 │   │   ├── rate-limiter.js # Bottleneck wrapper
 │   │   └── logger.js # Winston logger
-│   └── actions/
-│       ├── crafting.js # Recipe execution
-│       └── building.js # Structure placement
+│   ├── chat/
+│   │   └── chat-handler.js # In-game commands
+│   └── personality/
+│       └── personality-engine.js # Trait system
 ├── personality/
 │   └── Soul.md # Personality configuration
 ├── prompts/
