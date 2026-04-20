@@ -127,7 +127,6 @@ echo '{"goal": "collect 64 oak logs"}' > state/commands.json
 ## 📖 Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System design and model selection
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Step-by-step build guide
 - [COMPANION_FEATURES.md](docs/COMPANION_FEATURES.md) - Companion features (personality, memory, voice)
 - [ROBUSTNESS.md](docs/ROBUSTNESS.md) - Robustness features (confidence scoring, skills, reflection)
 - [AGENTS.md](AGENTS.md) - Developer guide with architecture and modules
@@ -327,4 +326,4 @@ MIT
 
 **Status:** 🚧 In Development
 
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for build progress.
+See [AGENTS.md](AGENTS.md) for implementation details and current status.

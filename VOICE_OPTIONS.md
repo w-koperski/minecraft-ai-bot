@@ -76,7 +76,7 @@ You (Discord voice) → Bot listens → Whisper STT → Bot executes → TTS →
 npm install @discordjs/voice discord.js @discordjs/opus sodium-native ffmpeg-static
 ```
 
-2. **Create Discord bot** (see IMPLEMENTATION_PLAN.md Phase 5, Option B)
+2. **Create Discord bot** (see docs/COMPANION_FEATURES.md for voice integration)
 
 3. **Add to .env**
 ```env
@@ -119,7 +119,7 @@ You (Mumble) → Bot listens → Whisper STT → Bot executes → TTS → Bot sp
 npm install mumble
 ```
 
-2. **Create Mumble bot** (see IMPLEMENTATION_PLAN.md Phase 5, Option B)
+2. **Create Mumble bot** (see docs/COMPANION_FEATURES.md for voice integration)
 
 3. **Add to .env**
 ```env
@@ -155,7 +155,7 @@ You (microphone) → Record → Whisper STT → Bot executes → TTS → Speaker
 
 ### Implementation
 
-See IMPLEMENTATION_PLAN.md Phase 5, Option C
+See docs/COMPANION_FEATURES.md for voice integration details
 
 ---
 
@@ -261,7 +261,7 @@ See IMPLEMENTATION_PLAN.md Phase 5, Option C
 ## Next Steps
 
 1. **Choose your option** based on use case
-2. **Follow implementation guide** in IMPLEMENTATION_PLAN.md Phase 5
+2. **Follow implementation guide** in docs/COMPANION_FEATURES.md
 3. **Test with simple commands** first
 4. **Tune Whisper model** if accuracy is low (try `small` or `medium`)
 5. **Adjust TTS voice** if needed (see sherpa-onnx-tts skill)

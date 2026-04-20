@@ -231,7 +231,6 @@ User/Voice → commander.js → commands.json
 ```
 minecraft-ai-bot/
 ├── ARCHITECTURE.md            # This file
-├── IMPLEMENTATION_PLAN.md     # Step-by-step implementation guide
 ├── README.md                  # Project overview
 ├── AGENTS.md                  # Developer guide
 ├── package.json               # Node.js dependencies
