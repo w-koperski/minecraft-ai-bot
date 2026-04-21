@@ -34,6 +34,7 @@ const KnowledgeGraph = require('./memory/knowledge-graph');
 const ReflectionModule = require('./learning/reflection-module');
 const featureFlags = require('./utils/feature-flags');
 const { getInstance: getDriveSystem } = require('./drives/drive-system');
+const PersonalityEngine = require('../personality/personality-engine');
 
 // Track shutdown state
 let isShuttingDown = false;
@@ -46,6 +47,7 @@ let consolidationTimer = null;
 let reflectionTimer = null;
 let driveTimer = null;
 let dashboardProcess = null;
+let emergencyStopTimer = null;
 
 /**
  * Spawn dashboard server as child process
@@ -222,7 +224,94 @@ bot.on('end', (reason) => {
     clearInterval(driveTimer);
     driveTimer = null;
   }
+  if (emergencyStopTimer) {
+    clearInterval(emergencyStopTimer);
+    emergencyStopTimer = null;
+  }
 });
+}
+
+/**
+ * Emergency stop handler - polls for emergency_stop signal from Commander
+ * When detected, immediately halts all layers and disconnects bot
+ */
+function startEmergencyStopHandler() {
+  const fs = require('fs');
+  const path = require('path');
+  const commandsPath = path.join(process.cwd(), 'state', 'commands.json');
+
+  emergencyStopTimer = setInterval(() => {
+    try {
+      if (!fs.existsSync(commandsPath)) return;
+
+      const commands = JSON.parse(fs.readFileSync(commandsPath, 'utf8'));
+
+      if (commands && commands.emergency_stop === true) {
+        logger.error('EMERGENCY STOP TRIGGERED', {
+          reason: commands.reason || 'Unknown',
+          source: commands.source || 'Unknown'
+        });
+
+        handleEmergencyStop(commands.reason);
+      }
+    } catch (error) {
+      // Ignore read errors - don't spam logs during normal operation
+    }
+  }, 1000);
+}
+
+/**
+ * Handle emergency stop - halt all layers immediately
+ */
+async function handleEmergencyStop(reason) {
+  if (isShuttingDown) return;
+
+  isShuttingDown = true;
+
+  // Stop emergency stop timer first
+  if (emergencyStopTimer) {
+    clearInterval(emergencyStopTimer);
+    emergencyStopTimer = null;
+  }
+
+  // Stop all timers
+  if (consolidationTimer) {
+    clearInterval(consolidationTimer);
+    consolidationTimer = null;
+  }
+  if (reflectionTimer) {
+    clearInterval(reflectionTimer);
+    reflectionTimer = null;
+  }
+  if (driveTimer) {
+    clearInterval(driveTimer);
+    driveTimer = null;
+  }
+
+  // Stop all layers immediately (don't wait for graceful shutdown)
+  if (pilot) {
+    try { pilot.stop(); } catch (e) { /* ignore */ }
+  }
+  if (strategy) {
+    try { strategy.stop(); } catch (e) { /* ignore */ }
+  }
+  if (commander) {
+    try { commander.stop(); } catch (e) { /* ignore */ }
+  }
+
+  // Stop dashboard
+  if (dashboardProcess) {
+    try { dashboardProcess.kill(); } catch (e) { /* ignore */ }
+    dashboardProcess = null;
+  }
+
+  // Disconnect bot
+  if (bot) {
+    try { bot.quit(); } catch (e) { /* ignore */ }
+  }
+
+  logger.error('Emergency stop complete, exiting', { reason });
+  process.exit(1);
 }
 
 /**
@@ -258,12 +347,11 @@ function buildDriveContext(botInstance) {
 }
 
 /**
- * Initialize all layers after bot is ready
+ * Initialize state files (called before bot spawn)
  */
-async function initializeLayers() {
-    logger.info('Initializing AI layers...');
+async function initializeStateFiles() {
+    logger.info('Initializing state files...');
 
-    // Initialize StateManager
     const stateManager = new StateManager();
 
     // Ensure state directory exists
@@ -287,26 +375,63 @@ async function initializeLayers() {
     await stateManager.write('commands', { goal: null });
 
     logger.info('State files initialized');
+}
+
+/**
+ * Initialize all layers after bot is ready
+ * Waits for Pilot and Strategy to complete first loop before starting Commander
+ */
+async function initializeLayers() {
+    logger.info('Initializing AI layers...');
+
+    const personalityEngine = PersonalityEngine.getInstance();
+    try {
+      await personalityEngine.loadSoul();
+      logger.info('Personality loaded from Soul.md');
+    } catch (error) {
+      logger.warn('Failed to load Soul.md, using defaults', { error: error.message });
+    }
 
     // Create layer instances
+    logger.info('Creating Pilot layer...');
     pilot = new Pilot(bot);
+    
+    logger.info('Creating Strategy layer...');
     strategy = new Strategy();
+    
+    logger.info('Creating Commander layer...');
     commander = new Commander();
 
-    // Start layers in sequence (fastest to slowest)
+    // Start Pilot and wait for first loop
     logger.info('Starting Pilot layer...');
+    const pilotReadyPromise = new Promise(resolve => {
+        pilot.once('first-loop-complete', () => {
+            logger.info('Pilot ready (first loop complete)');
+            resolve();
+        });
+    });
     await pilot.start();
+    await pilotReadyPromise;
 
+    // Start Strategy and wait for first loop
     logger.info('Starting Strategy layer...');
+    const strategyReadyPromise = new Promise(resolve => {
+        strategy.once('first-loop-complete', () => {
+            logger.info('Strategy ready (first loop complete)');
+            resolve();
+        });
+    });
     await strategy.start();
+    await strategyReadyPromise;
 
+    // Start Commander (depends on Pilot/Strategy ready)
     logger.info('Starting Commander layer...');
     await commander.start();
 
-logger.info('All AI layers running', {
-  pilot: pilot.getStatus(),
-  layers: ['pilot', 'strategy', 'commander']
-});
+    logger.info('All AI layers running', {
+        pilot: pilot.getStatus(),
+        layers: ['pilot', 'strategy', 'commander']
+    });
 
 knowledgeGraph = new KnowledgeGraph();
 
@@ -315,16 +440,14 @@ if (process.env.ENABLE_AUTO_CONSOLIDATION === 'true') {
   logger.info('Starting memory consolidation timer', { intervalMs: consolidationInterval });
 
   consolidationTimer = setInterval(async () => {
-    setImmediate(async () => {
-      try {
-        const stats = await knowledgeGraph.consolidate();
-        if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
-          logger.info('Memory consolidated', stats);
-        }
-      } catch (error) {
-        logger.error('Memory consolidation failed', { error: error.message });
+    try {
+      const stats = await knowledgeGraph.consolidate();
+      if (stats.stmToEpisodic > 0 || stats.episodicToLtm > 0 || stats.dropped > 0) {
+        logger.info('Memory consolidated', stats);
       }
-    });
+    } catch (error) {
+      logger.error('Memory consolidation failed', { error: error.message });
+    }
   }, consolidationInterval);
 }
 
@@ -366,6 +489,9 @@ if (featureFlags.isEnabled('DRIVES')) {
     });
   }, driveInterval);
 }
+
+// Start emergency stop handler
+startEmergencyStopHandler();
 }
 
 /**
@@ -406,6 +532,12 @@ if (pilot) {
     logger.info('Stopping drive computation timer...');
     clearInterval(driveTimer);
     driveTimer = null;
+  }
+
+  if (emergencyStopTimer) {
+    logger.info('Stopping emergency stop handler...');
+    clearInterval(emergencyStopTimer);
+    emergencyStopTimer = null;
   }
 
   // Stop dashboard process if running
@@ -449,16 +581,19 @@ async function main() {
     });
 
     try {
+        // Initialize state files before bot spawn
+        await initializeStateFiles();
+
         // Create bot
         bot = createBot();
 
-// Set up event handlers
-  setupBotEvents(bot);
+        // Set up event handlers
+        setupBotEvents(bot);
 
-  // Spawn dashboard server (non-blocking)
-  spawnDashboard();
+        // Spawn dashboard server (non-blocking)
+        spawnDashboard();
 
-  // Wait for bot to be ready
+        // Wait for bot to be ready
         bot.on('ready', async () => {
             logger.info('Bot ready for AI control');
 
@@ -519,6 +654,7 @@ if (require.main === module) {
 // Export for testing
 module.exports = {
   createBot,
+  initializeStateFiles,
   initializeLayers,
   gracefulShutdown,
   spawnDashboard

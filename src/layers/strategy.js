@@ -48,8 +48,11 @@ const STUCK_CONFIG = {
 // Knowledge graph query budget (Task 13)
 const GRAPH_QUERY_TIMEOUT_MS = 500;
 
-class Strategy {
+const EventEmitter = require('events');
+
+class Strategy extends EventEmitter {
   constructor() {
+    super();
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
     this.knowledgeGraph = new KnowledgeGraph();
@@ -59,6 +62,7 @@ class Strategy {
 
     this.running = false;
     this.loopTimer = null;
+    this._firstLoopComplete = false;
 
     this.currentGoal = null;
     this.currentPlan = null;
@@ -136,6 +140,9 @@ class Strategy {
    */
   async loop() {
     try {
+      // Track cycle start time for stale error detection
+      this.currentCycleStartTime = Date.now();
+
       // Read current state (Working Memory)
       const state = await this.stateManager.read('state');
       if (!state) {
@@ -168,14 +175,31 @@ class Strategy {
 
       // Check for action errors from Pilot
       const actionError = await this.stateManager.read('action_error');
-      if (actionError && actionError.timestamp > (this.planCreatedAt || 0)) {
-        logger.warn('Strategy: Action error detected, replanning', {
-          error: actionError.error,
-          action: actionError.action
-        });
-        await this.handleActionError(state, goal, actionError);
-        this.scheduleNextLoop();
-        return;
+      
+      // Validate error timestamp - ignore stale errors from previous cycles
+      if (actionError) {
+        const errorAge = this.currentCycleStartTime - actionError.timestamp;
+        
+        // Check if error is from current cycle (fresh) or previous cycle (stale)
+        if (actionError.timestamp < this.currentCycleStartTime) {
+          logger.debug('Strategy: Ignoring stale error from previous cycle', {
+            errorAge,
+            error: actionError.error || actionError.actual,
+            action: actionError.action
+          });
+          // Clear stale error to prevent reprocessing
+          await this.stateManager.delete('action_error');
+        } else if (actionError.timestamp > (this.planCreatedAt || 0)) {
+          // Fresh error from current cycle, process it
+          logger.warn('Strategy: Action error detected, replanning', {
+            error: actionError.error || actionError.actual,
+            action: actionError.action,
+            errorAge
+          });
+          await this.handleActionError(state, goal, actionError);
+          this.scheduleNextLoop();
+          return;
+        }
       }
 
       // Check if stuck
@@ -213,6 +237,12 @@ class Strategy {
         error: error.message, 
         stack: error.stack 
       });
+    }
+
+    // Emit first-loop-complete after initial loop finishes
+    if (!this._firstLoopComplete) {
+      this._firstLoopComplete = true;
+      this.emit('first-loop-complete');
     }
 
     this.scheduleNextLoop();

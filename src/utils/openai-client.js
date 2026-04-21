@@ -10,9 +10,9 @@ const logger = require('./logger');
 
 // Retry configuration
 const RETRY_CONFIG = {
-  maxRetries: 3,
+  maxRetries: 5,
   baseDelay: 1000, // 1s
-  maxDelay: 4000,  // 4s max (1s, 2s, 4s)
+  maxDelay: 60000,  // 60s max for 429 backoff
   backoffMultiplier: 2,
 };
 
@@ -101,16 +101,7 @@ class OpenAIClient {
     });
 
     this.stopped = false;
-
-    // Stop limiter on 429 errors
-    this.limiter.on('failed', (error) => {
-      if (error?.response?.status === 429) {
-        this.stopped = true;
-        this.limiter.stop({ dropWaitingJobs: true });
-        logger.warn('OpenAI-Client: Rate limit hit, limiter stopped');
-      }
-      return null;
-    });
+    this.rateLimitBackoffUntil = 0;
 
     // Create axios instance
     this.client = axios.create({
@@ -181,13 +172,24 @@ class OpenAIClient {
       const startTime = Date.now();
 
       try {
-        if (this.stopped) {
-          throw new Error('Limiter has been stopped due to 429');
+        // Check if we're in rate limit backoff period
+        const now = Date.now();
+        if (this.rateLimitBackoffUntil > now) {
+          const waitTime = this.rateLimitBackoffUntil - now;
+          logger.warn('OpenAI-Client: In rate limit backoff, waiting', {
+            waitMs: waitTime,
+            attempt: attempt + 1,
+          });
+          await this._sleep(waitTime);
         }
 
         const result = await this.limiter.schedule(requestFn);
         const latency = Date.now() - startTime;
         this.metrics.recordRequest(latency, true, attempt > 0);
+        
+        // Reset backoff on success
+        this.rateLimitBackoffUntil = 0;
+        
         return result;
       } catch (error) {
         const latency = Date.now() - startTime;
@@ -207,13 +209,19 @@ class OpenAIClient {
 
         lastError = error;
 
-        // If rate limited, stop completely
+        // If rate limited, apply exponential backoff (don't stop limiter)
         if (error?.response?.status === 429) {
-          logger.warn('OpenAI-Client: Rate limit hit, stopping', {
-            status: error?.response?.status,
+          const delay = Math.min(1000 * Math.pow(2, attempt), 60000);
+          this.rateLimitBackoffUntil = Date.now() + delay;
+          
+          logger.warn('OpenAI-Client: Rate limit hit, backing off', {
+            delayMs: delay,
             attempt: attempt + 1,
+            maxRetries: RETRY_CONFIG.maxRetries,
           });
-          throw error;
+          
+          await this._sleep(delay);
+          continue;
         }
 
         const delay = this._calculateBackoffDelay(attempt);

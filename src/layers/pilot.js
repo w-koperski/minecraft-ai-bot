@@ -41,8 +41,11 @@ const STUCK_THRESHOLD = {
   duration: 10000 // milliseconds
 };
 
-class Pilot {
+const EventEmitter = require('events');
+
+class Pilot extends EventEmitter {
   constructor(bot, options = {}) {
+    super();
     this.bot = bot;
     this.stateManager = new StateManager();
     this.omniroute = new OmnirouteClient();
@@ -53,6 +56,7 @@ class Pilot {
     this.loopTimer = null;
     this.currentInterval = INTERVALS.active;
     this.currentMode = 'active';
+    this._firstLoopComplete = false;
 
     // Stuck detection
     this.lastPosition = null;
@@ -148,13 +152,13 @@ class Pilot {
   async loop() {
     // Extract current game state
     const state = extractState(this.bot);
-    
+
     // Write state to file for other layers
     await this.stateManager.write('state', state);
 
     // Detect threats
     const threats = this.detectThreats(state);
-    
+
     // Adjust loop interval based on threat level
     this.adjustInterval(threats);
 
@@ -162,11 +166,16 @@ class Pilot {
     if (threats.length > 0) {
       logger.debug('Pilot: Threats detected', { count: threats.length, threats });
       await this.handleThreats(threats, state);
-      return;
+    } else {
+      // No threats - execute plan from Strategy
+      await this.executePlan(state);
     }
 
-    // No threats - execute plan from Strategy
-    await this.executePlan(state);
+    // Emit first-loop-complete after initial loop finishes
+    if (!this._firstLoopComplete) {
+      this._firstLoopComplete = true;
+      this.emit('first-loop-complete');
+    }
   }
 
   /**
@@ -625,13 +634,11 @@ Choose the safest action to avoid the threat.`;
             distance
           });
 
-          // Signal Strategy
-          this.stateManager.write('pilot_stuck', {
+          // Signal Strategy with retry
+          this.writeWithRetry('pilot_stuck', {
             position: { x: currentPos.x, y: currentPos.y, z: currentPos.z },
             duration: timeSinceMove,
             timestamp: Date.now()
-          }).catch(err => {
-            logger.error('Pilot: Failed to write stuck signal', { error: err.message });
           });
 
           // Reset timer
@@ -644,6 +651,26 @@ Choose the safest action to avoid the threat.`;
 
       this.lastPosition = { x: currentPos.x, y: currentPos.y, z: currentPos.z };
     }, 5000); // Check every 5 seconds
+  }
+
+  async writeWithRetry(key, value, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.stateManager.write(key, value);
+        return true;
+      } catch (error) {
+        logger.warn(`Pilot: Write failed (attempt ${attempt}/${maxRetries})`, {
+          key,
+          error: error.message
+        });
+        if (attempt < maxRetries) {
+          const delay = 100 * Math.pow(2, attempt - 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    logger.error('Pilot: Write failed after all retries', { key });
+    return false;
   }
 
   /**
