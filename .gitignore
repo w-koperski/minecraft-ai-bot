@@ -16,6 +16,9 @@ samples.json
 state/*.db
 coverage/
 test-results/
+.jest-cache/
+.tmp/
+jest_rs/
 
 # Planning and archive directories
 .sisyphus/
