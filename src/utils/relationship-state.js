@@ -19,13 +19,28 @@ const DEFAULT_RELATIONSHIP = {
 
 class RelationshipState {
   constructor(dbPath = path.join(process.cwd(), 'state', 'memory.db')) {
-    this.db = new sqlite3.Database(dbPath, (err) => {
-      if (err) {
-        logger.error('RelationshipState: Database connection failed', { error: err.message });
-      } else {
-        logger.debug('RelationshipState: Database connected');
-        this._initTable();
-      }
+    this.db = null;
+    this._ready = new Promise((resolve, reject) => {
+      this.db = new sqlite3.Database(dbPath, (err) => {
+        if (err) {
+          logger.error('RelationshipState: Database connection failed', { error: err.message });
+          reject(err);
+        } else {
+          logger.debug('RelationshipState: Database connected');
+          this._initTable((tableErr) => {
+            if (tableErr) {
+              logger.error('RelationshipState: Table initialization failed', { error: tableErr.message });
+              reject(tableErr);
+            } else {
+              resolve();
+            }
+          });
+        }
+      });
+    });
+    this._initError = null;
+    this._ready.catch((err) => {
+      this._initError = err;
     });
     this.cache = null;
     this.cacheTime = 0;
@@ -33,9 +48,20 @@ class RelationshipState {
   }
 
   /**
+   * Wait for database to be ready before performing operations
+   * @returns {Promise<void>} - Resolves when DB is ready, rejects if init failed
+   */
+  async _ensureReady() {
+    if (this._initError) {
+      throw this._initError;
+    }
+    await this._ready;
+  }
+
+  /**
    * Initialize relationship table if not exists
    */
-  _initTable() {
+  _initTable(callback) {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS relationship_state (
         player_id TEXT PRIMARY KEY,
@@ -45,7 +71,7 @@ class RelationshipState {
         last_interaction INTEGER,
         last_updated INTEGER NOT NULL
       )
-    `);
+    `, callback);
   }
 
   /**
@@ -54,7 +80,13 @@ class RelationshipState {
    * @returns {Promise<object>} - Relationship state { trust, familiarity, interactionCount }
    */
   async getRelationship(playerId = 'default') {
-    // Check cache
+    try {
+      await this._ensureReady();
+    } catch (err) {
+      logger.warn('RelationshipState: Database not ready, returning defaults', { error: err.message });
+      return { ...DEFAULT_RELATIONSHIP };
+    }
+
     const now = Date.now();
     if (this.cache && this.cache.playerId === playerId && (now - this.cacheTime) < this.CACHE_TTL) {
       return this.cache.data;
@@ -95,6 +127,13 @@ class RelationshipState {
    * @returns {Promise<object>} - Updated relationship state
    */
   async updateRelationship(playerId = 'default', updates = {}) {
+    try {
+      await this._ensureReady();
+    } catch (err) {
+      logger.warn('RelationshipState: Database not ready, skipping update', { error: err.message });
+      return { ...DEFAULT_RELATIONSHIP };
+    }
+
     const current = await this.getRelationship(playerId);
 
     // Apply updates with bounds
@@ -186,6 +225,13 @@ class RelationshipState {
    * Close database connection
    */
   async close() {
+    try {
+      await this._ensureReady();
+    } catch (err) {
+      logger.warn('RelationshipState: Database not initialized, nothing to close');
+      return;
+    }
+
     return new Promise((resolve, reject) => {
       this.db.close((err) => {
         if (err) {

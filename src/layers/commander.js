@@ -118,12 +118,16 @@ class Commander {
           this.autonomyEnabled = config.autonomy.enabled;
           this.autonomyLevel = config.autonomy.level || 'full';
         }
+      } else {
+        // No config file, use defaults
+        this.autonomyEnabled = true;
+        this.autonomyLevel = 'full';
       }
     } catch (error) {
       logger.warn('Commander: Failed to load config, using defaults', { error: error.message });
+      this.autonomyEnabled = true;
+      this.autonomyLevel = 'full';
     }
-    this.autonomyEnabled = true;
-    this.autonomyLevel = 'full';
   }
 
   /**
@@ -200,6 +204,25 @@ class Commander {
     const timings = {};
 
     try {
+      // 0. Check for help request from Strategy (highest priority)
+      const helpStart = Date.now();
+      const commands = await this.stateManager.read('commands');
+      if (commands && commands.stuck === true && commands.reason) {
+        logger.warn('Commander: Strategy requesting help', {
+          reason: commands.reason,
+          goal: commands.goal
+        });
+        
+        await this.handleStrategyHelpRequest(commands);
+        timings.helpRequest = Date.now() - helpStart;
+        
+        logger.info('Commander: Help request handled', {
+          duration: timings.helpRequest
+        });
+        return; // Skip normal loop after handling help request
+      }
+      timings.helpCheck = Date.now() - helpStart;
+
       // 1. Gather all memory tiers
       const memoryStart = Date.now();
       const memory = await this.gatherMemory();
@@ -321,6 +344,170 @@ class Commander {
         logger.error('Commander: Too many consecutive errors, issuing emergency stop');
         await this.issueEmergencyStop();
       }
+    }
+  }
+
+  /**
+   * Handle help request from Strategy layer
+   * Analyzes situation with LLM and provides actionable guidance
+   */
+  async handleStrategyHelpRequest(helpRequest) {
+    const state = await this.stateManager.read('state');
+    const plan = await this.stateManager.read('plan');
+    
+    logger.info('Commander: Analyzing Strategy help request', {
+      reason: helpRequest.reason,
+      goal: helpRequest.goal,
+      position: state?.position,
+      health: state?.health
+    });
+
+    try {
+      const prompt = this._buildHelpRequestPrompt(helpRequest, state, plan);
+      
+      const response = await this.omniroute.commander(prompt, {
+        temperature: 0.7,
+        maxTokens: 500
+      });
+
+      const guidance = this._parseHelpResponse(response);
+      
+      if (guidance.action === 'new_goal') {
+        await this.stateManager.write('commands', {
+          goal: guidance.newGoal,
+          guidance: guidance.suggestion,
+          timestamp: Date.now(),
+          source: 'commander_help'
+        });
+        
+        logger.info('Commander: Provided new goal to Strategy', {
+          newGoal: guidance.newGoal,
+          suggestion: guidance.suggestion
+        });
+      } else if (guidance.action === 'reset') {
+        await this.stateManager.write('commands', {
+          goal: null,
+          guidance: guidance.suggestion,
+          timestamp: Date.now(),
+          source: 'commander_help'
+        });
+        await this.stateManager.write('plan', []);
+        
+        logger.info('Commander: Reset Strategy state', {
+          suggestion: guidance.suggestion
+        });
+      } else {
+        await this.stateManager.write('commands', {
+          goal: helpRequest.goal,
+          guidance: guidance.suggestion,
+          timestamp: Date.now(),
+          source: 'commander_help'
+        });
+        
+        logger.info('Commander: Provided guidance to Strategy', {
+          suggestion: guidance.suggestion
+        });
+      }
+      
+      this.failureCount = 0;
+      
+    } catch (error) {
+      logger.error('Commander: Failed to handle help request', {
+        error: error.message,
+        stack: error.stack
+      });
+      
+      await this.stateManager.write('commands', {
+        goal: null,
+        guidance: 'Unable to analyze situation. Resetting to idle state.',
+        timestamp: Date.now(),
+        source: 'commander_help_fallback'
+      });
+      await this.stateManager.write('plan', []);
+    }
+  }
+
+  /**
+   * Build prompt for help request analysis
+   */
+  _buildHelpRequestPrompt(helpRequest, state, plan) {
+    const traits = this.personalityEngine.getTraits();
+    
+    return [
+      {
+        role: 'system',
+        content: `You are the Commander layer analyzing a help request from the Strategy layer.
+
+The Strategy layer is stuck and needs your guidance. Analyze the situation and provide ONE of:
+1. A new, simpler goal (if current goal is too complex)
+2. A reset to idle (if goal is impossible or dangerous)
+3. Specific guidance to unstick the current approach
+
+Respond with JSON:
+{
+  "action": "new_goal" | "reset" | "continue_with_guidance",
+  "newGoal": "simplified goal description" (if action is new_goal),
+  "suggestion": "specific actionable guidance"
+}
+
+Be concise and practical. Consider the bot's current state and resources.`
+      },
+      {
+        role: 'user',
+        content: `Strategy Help Request:
+- Reason: ${helpRequest.reason}
+- Current Goal: ${helpRequest.goal || 'None'}
+- Help Request State: ${JSON.stringify(helpRequest.state || {})}
+
+Current Bot State:
+- Health: ${state?.health || 0}/20
+- Food: ${state?.food || 0}/20
+- Position: ${JSON.stringify(state?.position || {})}
+- Inventory: ${state?.inventory?.length || 0} items
+${state?.inventory?.slice(0, 5).map(i => `  - ${i.name} x${i.count}`).join('\n') || ''}
+
+Current Plan: ${plan?.length || 0} steps remaining
+${plan?.slice(0, 3).map((p, i) => `  ${i + 1}. ${p.action || p.type}`).join('\n') || '  (empty)'}
+
+Personality traits: curiosity=${traits.curiosity?.toFixed(2)}, loyalty=${traits.loyalty?.toFixed(2)}, bravery=${traits.bravery?.toFixed(2)}
+
+What should Strategy do?`
+      }
+    ];
+  }
+
+  /**
+   * Parse help response from LLM
+   */
+  _parseHelpResponse(response) {
+    try {
+      const content = response.choices[0].message.content;
+      
+      const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : content;
+      
+      const parsed = JSON.parse(jsonStr);
+      
+      const validActions = ['new_goal', 'reset', 'continue_with_guidance'];
+      if (!validActions.includes(parsed.action)) {
+        parsed.action = 'continue_with_guidance';
+      }
+      
+      return {
+        action: parsed.action,
+        newGoal: parsed.newGoal || null,
+        suggestion: parsed.suggestion || 'Try a different approach to the current goal.'
+      };
+    } catch (error) {
+      logger.error('Commander: Failed to parse help response', {
+        error: error.message
+      });
+      
+      return {
+        action: 'continue_with_guidance',
+        newGoal: null,
+        suggestion: 'Clear current plan and try a simpler approach.'
+      };
     }
   }
 

@@ -13,6 +13,17 @@ class ActionAwareness {
   }
 
   async executeWithVerification(action, expectedOutcome) {
+    // Check bot is ready before using vision
+    if (!this.bot.entity) {
+      logger.warn('ActionAwareness: Bot not ready, cannot execute action', { action });
+      return {
+        success: false,
+        reason: 'bot_not_ready',
+        confidence: 0.0,
+        actual: null
+      };
+    }
+
     const startState = this.vision.extractState();
     const startTime = Date.now();
 
