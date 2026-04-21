@@ -57,32 +57,145 @@ describe('OpenAIClient', () => {
   });
 
   describe('chat()', () => {
-    // Skip chat tests due to retry/timeout complexity
-    // These are better tested in integration tests
-    it.skip('should send chat request with string message', async () => {
-      // Skipped due to retry logic timing out in unit tests
+    it('should send chat request with string message', async () => {
+      // Mock axios post to return a valid response
+      client.client.post = jest.fn().mockResolvedValue({
+        data: {
+          choices: [{
+            message: {
+              content: 'Hello!',
+              role: 'assistant',
+            },
+            finish_reason: 'stop',
+          }],
+          model: 'gpt-3.5-turbo',
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        },
+      });
+
+      const result = await client.chat('Hello');
+
+      expect(result).toBeDefined();
+      expect(result.content).toBe('Hello!');
+      expect(result.role).toBe('assistant');
+      expect(client.client.post).toHaveBeenCalled();
     });
 
-    it.skip('should send chat request with layer parameter', async () => {
-      // Skipped due to retry logic timing out in unit tests
+    it('should send chat request with layer parameter', async () => {
+      client.client.post = jest.fn().mockResolvedValue({
+        data: {
+          choices: [{
+            message: {
+              content: 'Response',
+              role: 'assistant',
+            },
+            finish_reason: 'stop',
+          }],
+          model: 'custom-model',
+        },
+      });
+
+      const result = await client.chat('Test message', 'strategy', { model: 'custom-model' });
+
+      expect(result).toBeDefined();
+      expect(result.content).toBe('Response');
+      expect(client.client.post).toHaveBeenCalledWith(
+        '/chat/completions',
+        expect.objectContaining({
+          model: 'custom-model',
+          messages: [{ role: 'user', content: 'Test message' }],
+        })
+      );
     });
 
-    it.skip('should handle streaming responses', async () => {
-      // Skipped due to retry logic timing out in unit tests  
+    it('should handle streaming responses', async () => {
+      // Test streaming option is passed correctly
+      client.client.post = jest.fn().mockResolvedValue({
+        data: {
+          choices: [{
+            message: {
+              content: 'Streaming response',
+              role: 'assistant',
+            },
+            finish_reason: 'stop',
+          }],
+        },
+      });
+
+      const result = await client.chat('Test', 'pilot', { stream: true });
+
+      expect(result).toBeDefined();
+      expect(client.client.post).toHaveBeenCalledWith(
+        '/chat/completions',
+        expect.objectContaining({ stream: true })
+      );
     });
 
-    it.skip('should handle array messages', async () => {
-      // Skipped due to retry logic timing out in unit tests
+    it('should handle array messages', async () => {
+      client.client.post = jest.fn().mockResolvedValue({
+        data: {
+          choices: [{
+            message: {
+              content: 'Response with context',
+              role: 'assistant',
+            },
+            finish_reason: 'stop',
+          }],
+        },
+      });
+
+      const messages = [
+        { role: 'system', content: 'You are a helpful assistant' },
+        { role: 'user', content: 'Hello' },
+      ];
+      const result = await client.chat(messages);
+
+      expect(result).toBeDefined();
+      expect(client.client.post).toHaveBeenCalledWith(
+        '/chat/completions',
+        expect.objectContaining({
+          messages: messages,
+        })
+      );
     });
   });
 
   describe('error handling', () => {
-    it.skip('should handle rate limit errors', async () => {
-      // Skipped due to retry logic timing out in unit tests
+    it('should handle rate limit errors', async () => {
+      const rateLimitError = new Error('Rate limit exceeded');
+      rateLimitError.response = { status: 429 };
+      rateLimitError.code = 'ERR_BAD_REQUEST';
+
+      client.client.post = jest.fn()
+        .mockRejectedValueOnce(rateLimitError)
+        .mockResolvedValueOnce({
+          data: {
+            choices: [{
+              message: { content: 'Success after retry', role: 'assistant' },
+              finish_reason: 'stop',
+            }],
+          },
+        });
+
+      const result = await client.chat('Test message');
+
+      expect(result).toBeDefined();
+      expect(result.content).toBe('Success after retry');
     });
 
-    it.skip('should handle API errors gracefully', async () => {
-      // Skipped due to retry logic timing out in unit tests
+    it('should handle API errors gracefully', async () => {
+      const originalExecuteWithRetry = client._executeWithRetry.bind(client);
+      client._executeWithRetry = jest.fn(async (requestFn) => {
+        try {
+          return await requestFn();
+        } catch (error) {
+          throw error;
+        }
+      });
+
+      client.client.post = jest.fn().mockRejectedValue(new Error('API validation failed'));
+
+      await expect(client.chat('test')).rejects.toThrow('API validation failed');
     });
   });
 
