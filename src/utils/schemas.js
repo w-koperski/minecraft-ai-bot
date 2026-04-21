@@ -61,8 +61,8 @@ const stateSchema = {
   position: { validator: isValidPosition, required: true },
   health: { validator: (v) => typeof v === 'number' && v >= 0, required: true },
   inventory: { validator: (v) => Array.isArray(v), required: true },
-  entities: { validator: (v) => Array.isArray(v), required: true },
-  blocks: { validator: (v) => Array.isArray(v), required: true },
+  entities: { validator: (v) => typeof v === 'object' && v !== null, required: true },
+  blocks: { validator: (v) => typeof v === 'object' && v !== null, required: true },
   chat: { validator: (v) => Array.isArray(v), required: false },
   events: { validator: (v) => Array.isArray(v), required: false },
   timestamp: { validator: (v) => typeof v === 'number', required: false }

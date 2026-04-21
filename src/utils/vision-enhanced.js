@@ -20,19 +20,26 @@ function extractState(bot) {
     return { error: 'No bot instance provided' };
   }
 
+  const self = extractSelfState(bot);
+
   const state = {
-    timestamp: new Date().toISOString(),
-    
-    // Bot status
-    self: extractSelfState(bot),
-    
+    timestamp: Date.now(),
+
+    // Top-level fields matching state schema
+    position: self.position,
+    health: self.health,
+    inventory: self.inventory,
+
+    // Bot status (backward compatibility)
+    self: self,
+
     // Environmental awareness
     blocks: extractNearbyBlocks(bot),
     entities: extractNearbyEntities(bot),
-    
+
     // Communication
     chat: extractRecentChat(bot),
-    
+
     // Event tracking
     events: extractRecentEvents(bot)
   };

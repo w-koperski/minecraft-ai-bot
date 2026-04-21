@@ -41,6 +41,33 @@ class StateManager {
     };
     // Track previous drive scores to detect significant changes
     this._previousDriveScores = null;
+    // Clean stale locks on startup
+    this._cleanStaleLocks();
+  }
+
+  _cleanStaleLocks() {
+    const fs = require('fs');
+    const now = Date.now();
+    const STALE_THRESHOLD = 10000; // 10 seconds
+
+    try {
+      const files = fs.readdirSync(this.stateDir);
+      for (const file of files) {
+        if (file.endsWith('.lock')) {
+          const lockPath = path.join(this.stateDir, file);
+          try {
+            const stats = fs.statSync(lockPath);
+            if (now - stats.mtimeMs > STALE_THRESHOLD) {
+              fs.unlinkSync(lockPath);
+            }
+          } catch {
+            // Ignore files that can't be accessed
+          }
+        }
+      }
+    } catch {
+      // State dir may not exist yet
+    }
   }
 
   addSchema(name, schema) {
@@ -88,8 +115,8 @@ class StateManager {
   async withLock(filePath, operation) {
     return new Promise((resolve, reject) => {
       lockfile.lock(
-        filePath,
-        { timeout: this.lockTimeout, retries: 0 },
+        filePath + '.lock',
+        { timeout: this.lockTimeout, retries: 10, minDelay: 50, maxDelay: 500, stale: 10000 },
         async (err) => {
           if (err) return reject(err);
           try {
@@ -98,7 +125,7 @@ class StateManager {
           } catch (opErr) {
             reject(opErr);
           } finally {
-            lockfile.unlock(filePath, () => {});
+            lockfile.unlock(filePath + '.lock', () => {});
           }
         }
       );
@@ -121,10 +148,10 @@ class StateManager {
   }
 
   async write(key, data) {
-    await this.validate(key, data);
     const filePath = this.getFilePath(key);
 
     return this.withLock(filePath, async () => {
+      await this.validate(key, data);
       await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
       return true;
     });
